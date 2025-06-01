@@ -1,0 +1,9 @@
+{
+  "/_not-found": "/_not-found",
+  "/page": "/",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/deposit/page": "/dashboard/deposit",
+  "/dashboard/settings/page": "/dashboard/settings",
+  "/dashboard/strategies/page": "/dashboard/strategies",
+  "/dashboard/strategies/create/page": "/dashboard/strategies/create"
+}
