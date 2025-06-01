@@ -13,7 +13,7 @@ import { WalletProvider } from '@/components/wallet-provider';
 import { NavigationMenu } from '@/components/navigation-menu';
 import { Toaster } from '@/components/ui/toaster';
 import { CSSStabilizer } from '@/components/css-stabilizer';
-import { ReactQueryProvider } from '@/hooks/use-query-provider';
+import { WagmiConfig } from '@/components/providers/wagmi-provider';
 
 export const metadata: Metadata = {
   title: 'CrossMind - Autonomous Web3 Investment Agent',
@@ -32,23 +32,23 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body className="font-sans antialiased">
-        <ReactQueryProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-          >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+        >
+          <WagmiConfig>
             <WalletProvider>
               <CSSStabilizer>
                 <div className="flex min-h-screen flex-col">
-                <NavigationMenu />
-                <main className="flex-1">{children}</main>
-                <Toaster />
-              </div>
-            </CSSStabilizer>
-          </WalletProvider>
+                  <NavigationMenu />
+                  <main className="flex-1">{children}</main>
+                  <Toaster />
+                </div>
+              </CSSStabilizer>
+            </WalletProvider>
+          </WagmiConfig>
         </ThemeProvider>
-      </ReactQueryProvider>
       </body>
     </html>
   );

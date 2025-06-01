@@ -33,6 +33,7 @@ export function PortfolioOverview() {
                 fontSize={12} 
                 tickLine={false} 
                 axisLine={false}
+                tick={{ fill: 'hsl(var(--foreground))' }}
               />
               <YAxis 
                 stroke="var(--muted-foreground)" 
@@ -40,14 +41,17 @@ export function PortfolioOverview() {
                 tickLine={false} 
                 axisLine={false}
                 tickFormatter={value => `$${value}`}
+                tick={{ fill: 'hsl(var(--foreground))' }}
               />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
                   borderColor: 'hsl(var(--border))',
                   borderRadius: '0.5rem',
+                  color: 'hsl(var(--card-foreground))',
                 }}
                 labelStyle={{ color: 'hsl(var(--card-foreground))' }}
+                itemStyle={{ color: 'hsl(var(--card-foreground))' }}
                 formatter={(value: number) => [`$${value}`, 'Value']}
               />
               <Line

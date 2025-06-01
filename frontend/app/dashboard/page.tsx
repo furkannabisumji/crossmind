@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useWallet } from "@/components/wallet-provider";
+import { WalletConnectionWrapper } from "@/components/shared/wallet-connection-wrapper";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -69,25 +70,32 @@ export default function DashboardPage() {
 
   // Optimized rendering logic with proper loading states
   const renderContent = () => {
-    // Show skeleton during initial load or when hydrating
-    if (!mounted || isLoading) {
+    // Show skeleton during initial load
+    if (isLoading) {
       return (
-        <div className="container py-8 animate-in fade-in duration-500">
-          <div className="flex flex-col gap-4">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-4 w-64" />
-            <div className="mt-8">
-              <div className="grid w-full grid-cols-3 lg:w-auto gap-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-              <div className="mt-6 space-y-6">
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  <Skeleton className="h-32 w-full" />
-                  <Skeleton className="h-32 w-full" />
-                  <Skeleton className="h-32 w-full" />
-                </div>
+        <div className="container py-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="mt-2 h-4 w-64" />
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+            </div>
+            <div className="mt-6 space-y-6">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
               </div>
             </div>
           </div>
@@ -95,25 +103,17 @@ export default function DashboardPage() {
       );
     }
 
-    // Show connect wallet when not connected
-    if (!debouncedConnectionState) {
-      return (
-        <div className="container py-8 animate-in fade-in duration-300">
-          <ConnectWallet />
-        </div>
-      );
-    }
-
-    // Show dashboard content when connected
     return (
-      <div className="container py-8 animate-in fade-in duration-300">
-        {/* Dashboard content */}
-        <DashboardContent
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          tabs={tabs}
-        />
-      </div>
+      <WalletConnectionWrapper>
+        <div className="container py-8 animate-in fade-in duration-300">
+          {/* Dashboard content */}
+          <DashboardContent
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            tabs={tabs}
+          />
+        </div>
+      </WalletConnectionWrapper>
     );
   };
 

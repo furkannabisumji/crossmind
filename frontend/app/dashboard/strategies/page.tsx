@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/components/wallet-provider";
-import { ConnectWallet } from "@/components/connect-wallet";
+import { WalletConnectionWrapper } from "@/components/shared/wallet-connection-wrapper";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StrategyCard } from "@/components/strategies/strategy-card";
@@ -66,9 +66,7 @@ export default function StrategiesPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
 
-  if (!isConnected) {
-    return <ConnectWallet />;
-  }
+  // Wallet connection is now handled by the WalletConnectionWrapper
 
   const filteredStrategies = activeTab === "all" 
     ? strategies 
@@ -79,7 +77,8 @@ export default function StrategiesPage() {
   };
 
   return (
-    <div className="container py-8">
+    <WalletConnectionWrapper>
+      <div className="container py-8">
       {selectedStrategy ? (
         <div>
           <Button 
@@ -220,5 +219,6 @@ export default function StrategiesPage() {
         </>
       )}
     </div>
+    </WalletConnectionWrapper>
   );
 }

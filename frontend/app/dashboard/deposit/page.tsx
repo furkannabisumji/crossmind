@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/components/wallet-provider";
-import { ConnectWallet } from "@/components/connect-wallet";
+import { WalletConnectionWrapper } from "@/components/shared/wallet-connection-wrapper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,7 @@ export default function DepositPage() {
   const [riskLevel, setRiskLevel] = useState("moderate");
   const [depositStep, setDepositStep] = useState(1);
 
-  if (!isConnected) {
-    return <ConnectWallet />;
-  }
+  // Wallet connection is now handled by the WalletConnectionWrapper
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAmount(e.target.value);
@@ -45,8 +43,9 @@ export default function DepositPage() {
   };
 
   return (
-    <div className="container py-8">
-      <div className="mx-auto max-w-md">
+    <WalletConnectionWrapper>
+      <div className="container py-8">
+        <div className="mx-auto max-w-md">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2">Deposit Funds</h1>
@@ -279,5 +278,6 @@ export default function DepositPage() {
         )}
       </div>
     </div>
+    </WalletConnectionWrapper>
   );
 }

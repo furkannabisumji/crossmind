@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/components/wallet-provider";
-import { ConnectWallet } from "@/components/connect-wallet";
+import { WalletConnectionWrapper } from "@/components/shared/wallet-connection-wrapper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,9 +22,7 @@ export default function CreateStrategyPage() {
   const [riskLevel, setRiskLevel] = useState("moderate");
   const [chains, setChains] = useState([{ chain: "", percentage: 0, protocols: [""] }]);
 
-  if (!isConnected) {
-    return <ConnectWallet />;
-  }
+  // Wallet connection is now handled by the WalletConnectionWrapper
 
   const handleAddChain = () => {
     setChains([...chains, { chain: "", percentage: 0, protocols: [""] }]);
@@ -76,7 +74,8 @@ export default function CreateStrategyPage() {
   };
 
   return (
-    <div className="container py-8">
+    <WalletConnectionWrapper>
+      <div className="container py-8">
       <Button
         variant="ghost"
         onClick={() => router.push("/dashboard/strategies")}
@@ -278,5 +277,6 @@ export default function CreateStrategyPage() {
         </div>
       </div>
     </div>
+    </WalletConnectionWrapper>
   );
 }
