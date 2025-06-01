@@ -16,7 +16,7 @@ import Link from "next/link";
 import { ConnectWallet } from "@/components/connect-wallet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { useDebounce } from "@/lib/use-debounce";
+import { useDebounce } from "@/hooks/use-debounce";
 
 // Import components directly instead of using dynamic imports
 import { PortfolioOverview } from "@/components/dashboard/portfolio-overview";
@@ -48,8 +48,6 @@ export default function DashboardPage() {
 
   // Use debounced connection state to prevent UI flicker
   const debouncedConnectionState = useDebounce(isConnected, 150);
-  const showContent = mounted && !isLoading && debouncedConnectionState;
-  const showConnectWallet = mounted && !isLoading && !debouncedConnectionState;
 
   // Handle client-side hydration with proper cleanup
   useEffect(() => {

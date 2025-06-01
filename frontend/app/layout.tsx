@@ -13,6 +13,7 @@ import { WalletProvider } from '@/components/wallet-provider';
 import { NavigationMenu } from '@/components/navigation-menu';
 import { Toaster } from '@/components/ui/toaster';
 import { CSSStabilizer } from '@/components/css-stabilizer';
+import { ReactQueryProvider } from '@/hooks/use-query-provider';
 
 export const metadata: Metadata = {
   title: 'CrossMind - Autonomous Web3 Investment Agent',
@@ -31,14 +32,15 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body className="font-sans antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-        >
-          <WalletProvider>
-            <CSSStabilizer>
-              <div className="flex min-h-screen flex-col">
+        <ReactQueryProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+          >
+            <WalletProvider>
+              <CSSStabilizer>
+                <div className="flex min-h-screen flex-col">
                 <NavigationMenu />
                 <main className="flex-1">{children}</main>
                 <Toaster />
@@ -46,6 +48,7 @@ export default function RootLayout({
             </CSSStabilizer>
           </WalletProvider>
         </ThemeProvider>
+      </ReactQueryProvider>
       </body>
     </html>
   );
