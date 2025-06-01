@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet-provider";
-import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -16,61 +15,13 @@ import { PlusCircle, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { ConnectWallet } from "@/components/connect-wallet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PortfolioOverview } from "@/components/dashboard/portfolio-overview";
+import { StrategyPreview } from "@/components/dashboard/strategy-preview";
+import { TransactionHistory } from "@/components/dashboard/transaction-history";
+import { ChainDistribution } from "@/components/dashboard/chain-distribution";
+import { ChatInterface } from "@/components/chat/chat-interface";
 
-// Dynamically import components that use browser APIs to prevent SSR issues
-// Component loaders with fallbacks
-const PortfolioOverview = dynamic(
-  () =>
-    import("@/components/dashboard/portfolio-overview").then(
-      (mod) => mod.PortfolioOverview
-    ),
-  { 
-    ssr: false,
-    loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />
-  }
-);
-
-const StrategyPreview = dynamic(
-  () =>
-    import("@/components/dashboard/strategy-preview").then(
-      (mod) => mod.StrategyPreview
-    ),
-  { 
-    ssr: false,
-    loading: () => <Skeleton className="h-[200px] w-full rounded-lg" />
-  }
-);
-
-const TransactionHistory = dynamic(
-  () =>
-    import("@/components/dashboard/transaction-history").then(
-      (mod) => mod.TransactionHistory
-    ),
-  { 
-    ssr: false,
-    loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />
-  }
-);
-
-const ChainDistribution = dynamic(
-  () =>
-    import("@/components/dashboard/chain-distribution").then(
-      (mod) => mod.ChainDistribution
-    ),
-  { 
-    ssr: false,
-    loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />
-  }
-);
-
-const ChatInterface = dynamic(
-  () =>
-    import("@/components/chat/chat-interface").then((mod) => mod.ChatInterface),
-  { 
-    ssr: false,
-    loading: () => null
-  }
-);
+// Using regular imports instead of dynamic imports for better reliability
 
 export default function DashboardPage() {
   // Use a more reliable approach for client-side hydration
