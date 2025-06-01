@@ -16,6 +16,7 @@ import Link from "next/link";
 import { ConnectWallet } from "@/components/connect-wallet";
 import { Skeleton } from "@/components/ui/skeleton";
 import dynamic from "next/dynamic";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 // Import client components with dynamic imports to prevent SSR issues
 const PortfolioOverview = dynamic(
@@ -174,8 +175,12 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
-                  <PortfolioOverview />
-                  <ChainDistribution />
+                  <ErrorBoundary>
+                    <PortfolioOverview />
+                  </ErrorBoundary>
+                  <ErrorBoundary>
+                    <ChainDistribution />
+                  </ErrorBoundary>
                 </div>
 
                 <Card>
@@ -186,7 +191,9 @@ export default function DashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <StrategyPreview />
+                    <ErrorBoundary>
+                      <StrategyPreview />
+                    </ErrorBoundary>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -263,13 +270,17 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="transactions">
-                <TransactionHistory />
+                <ErrorBoundary>
+                  <TransactionHistory />
+                </ErrorBoundary>
               </TabsContent>
             </div>
           </Tabs>
         </div>
       </div>
-      <ChatInterface />
+      <ErrorBoundary>
+        <ChatInterface />
+      </ErrorBoundary>
     </>
   );
 }

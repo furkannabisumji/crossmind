@@ -30,9 +30,10 @@ export function ChatInterface() {
 
     try {
       // In a real implementation, this would call your AI endpoint
-      const response = await new Promise<string>(resolve => 
-        setTimeout(() => resolve("I understand you're interested in optimizing your investment strategy. Based on your portfolio's current performance and market conditions, I recommend considering increasing exposure to DeFi protocols on Arbitrum, which are showing strong yields. Would you like me to analyze specific protocols for you?"), 1000)
-      );
+      const aiResponse = "I understand you're interested in optimizing your investment strategy. Based on your portfolio's current performance and market conditions, I recommend considering increasing exposure to DeFi protocols on Arbitrum, which are showing strong yields. Would you like me to analyze specific protocols for you?";
+      
+      // Simulate API delay
+      const response = await new Promise<string>(resolve => setTimeout(() => resolve(aiResponse), 1000));
 
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (error) {
