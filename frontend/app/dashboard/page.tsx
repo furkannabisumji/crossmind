@@ -63,15 +63,34 @@ export default function DashboardPage() {
   // Use a more reliable approach for client-side hydration
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  const { isConnected } = useWallet();
+  
+  // Safely access wallet context
+  const walletContext = useWallet();
+  const isConnected = mounted ? walletContext?.isConnected : false;
 
   // Handle client-side hydration
   useEffect(() => {
-    setMounted(true);
+    // Set a short timeout to ensure DOM is fully ready
+    const timer = setTimeout(() => {
+      setMounted(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
 
+  // Force a re-render after initial mount to ensure wallet connection is properly detected
+  useEffect(() => {
+    if (mounted) {
+      const rerender = setTimeout(() => {
+        // This forces a re-evaluation of the wallet connection status
+        setMounted(state => state);
+      }, 500);
+      
+      return () => clearTimeout(rerender);
+    }
+  }, [mounted]);
+
   // This ensures the component renders the same content server-side and client-side on first load
-  // to prevent hydration errors, then updates once mounted on the client
   if (!mounted) {
     return (
       <div className="container py-8">
@@ -97,8 +116,13 @@ export default function DashboardPage() {
     );
   }
 
+  // Render the ConnectWallet component when not connected
   if (!isConnected) {
-    return <ConnectWallet />;
+    return (
+      <div className="container py-8">
+        <ConnectWallet />
+      </div>
+    );
   }
 
   return (

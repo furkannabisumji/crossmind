@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useWallet } from "@/components/wallet-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +8,27 @@ import { Wallet, ShieldCheck, Zap } from "lucide-react";
 
 export function ConnectWallet() {
   const { connect } = useWallet();
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConnect = async () => {
+    try {
+      setIsConnecting(true);
+      setError(null);
+      
+      // Call the connect function from the wallet provider
+      const success = await connect();
+      
+      if (!success) {
+        setError("Failed to connect wallet. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error connecting wallet:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   return (
     <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-8">
@@ -18,12 +40,28 @@ export function ConnectWallet() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm">
+              {error}
+            </div>
+          )}
+          
           <Button 
             className="w-full" 
             size="lg" 
-            onClick={connect}
+            onClick={handleConnect}
+            disabled={isConnecting}
           >
-            <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
+            {isConnecting ? (
+              <>
+                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                Connecting...
+              </>
+            ) : (
+              <>
+                <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
+              </>
+            )}
           </Button>
           
           <div className="space-y-4 pt-4">
