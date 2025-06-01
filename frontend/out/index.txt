@@ -1,5 +1,5 @@
 1:HL["/_next/static/css/b5336d169cd6a380.css","style"]
-0:["HnVPrqvNqCOl8FdBox9cX",[[["",{"children":["__PAGE__",{}]},"$undefined","$undefined",true],"$L2",[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/css/b5336d169cd6a380.css","precedence":"next"}]],"$L3"]]]]
+0:["ZsAhACCktE-KOhFGwlwOS",[[["",{"children":["__PAGE__",{}]},"$undefined","$undefined",true],"$L2",[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/css/b5336d169cd6a380.css","precedence":"next"}]],"$L3"]]]]
 4:I{"id":87309,"chunks":["620:static/chunks/620-fea96da26781d21e.js","441:static/chunks/441-8f6557c5083802cb.js","245:static/chunks/245-df7555f28f9d3a9a.js","40:static/chunks/40-8c4b43cd9fda4052.js","185:static/chunks/app/layout-6b9cb08d580e4c5e.js"],"name":"ThemeProvider","async":false}
 5:I{"id":66520,"chunks":["620:static/chunks/620-fea96da26781d21e.js","441:static/chunks/441-8f6557c5083802cb.js","245:static/chunks/245-df7555f28f9d3a9a.js","40:static/chunks/40-8c4b43cd9fda4052.js","185:static/chunks/app/layout-6b9cb08d580e4c5e.js"],"name":"WalletProvider","async":false}
 6:I{"id":46368,"chunks":["620:static/chunks/620-fea96da26781d21e.js","441:static/chunks/441-8f6557c5083802cb.js","245:static/chunks/245-df7555f28f9d3a9a.js","40:static/chunks/40-8c4b43cd9fda4052.js","185:static/chunks/app/layout-6b9cb08d580e4c5e.js"],"name":"NavigationMenu","async":false}

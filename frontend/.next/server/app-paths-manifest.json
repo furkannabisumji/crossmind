@@ -1,4 +1,7 @@
 {
   "/not-found": "app/not-found.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/strategies/page": "app/dashboard/strategies/page.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js",
+  "/dashboard/deposit/page": "app/dashboard/deposit/page.js"
 }

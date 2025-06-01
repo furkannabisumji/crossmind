@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet-provider";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
@@ -12,48 +12,120 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusCircle, ArrowUpRight } from "lucide-react";
+import { PlusCircle, ArrowUpRight, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { ConnectWallet } from "@/components/connect-wallet";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Error Boundary Component
+function ErrorBoundary({ children }: { children: React.ReactNode }) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    const handleError = (error: ErrorEvent) => {
+      console.error("Client error caught:", error);
+      setHasError(true);
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (hasError) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          There was an error loading this component. Please try refreshing the page.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return children;
+}
 
 // Dynamically import components that use browser APIs to prevent SSR issues
+// Component loaders with fallbacks
 const PortfolioOverview = dynamic(
   () =>
     import("@/components/dashboard/portfolio-overview").then(
       (mod) => mod.PortfolioOverview
     ),
-  { ssr: false }
+  { 
+    ssr: false,
+    loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />
+  }
 );
+
 const StrategyPreview = dynamic(
   () =>
     import("@/components/dashboard/strategy-preview").then(
       (mod) => mod.StrategyPreview
     ),
-  { ssr: false }
+  { 
+    ssr: false,
+    loading: () => <Skeleton className="h-[200px] w-full rounded-lg" />
+  }
 );
+
 const TransactionHistory = dynamic(
   () =>
     import("@/components/dashboard/transaction-history").then(
       (mod) => mod.TransactionHistory
     ),
-  { ssr: false }
+  { 
+    ssr: false,
+    loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />
+  }
 );
+
 const ChainDistribution = dynamic(
   () =>
     import("@/components/dashboard/chain-distribution").then(
       (mod) => mod.ChainDistribution
     ),
-  { ssr: false }
+  { 
+    ssr: false,
+    loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />
+  }
 );
+
 const ChatInterface = dynamic(
   () =>
     import("@/components/chat/chat-interface").then((mod) => mod.ChatInterface),
-  { ssr: false }
+  { 
+    ssr: false,
+    loading: () => null
+  }
 );
 
 export default function DashboardPage() {
-  const { isConnected } = useWallet();
+  const [isClientSide, setIsClientSide] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  
+  // Safe access to wallet context with client-side check
+  const walletContext = useWallet();
+  const isConnected = walletContext?.isConnected;
+
+  // Handle client-side hydration
+  useEffect(() => {
+    setIsClientSide(true);
+  }, []);
+
+  // Show a minimal UI during SSR
+  if (!isClientSide) {
+    return (
+      <div className="container py-8">
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+      </div>
+    );
+  }
 
   if (!isConnected) {
     return <ConnectWallet />;
@@ -133,8 +205,12 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
-                  <PortfolioOverview />
-                  <ChainDistribution />
+                  <ErrorBoundary>
+                    <PortfolioOverview />
+                  </ErrorBoundary>
+                  <ErrorBoundary>
+                    <ChainDistribution />
+                  </ErrorBoundary>
                 </div>
 
                 <Card>
@@ -145,7 +221,9 @@ export default function DashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <StrategyPreview />
+                    <ErrorBoundary>
+                      <StrategyPreview />
+                    </ErrorBoundary>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -222,13 +300,17 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="transactions">
-                <TransactionHistory />
+                <ErrorBoundary>
+                  <TransactionHistory />
+                </ErrorBoundary>
               </TabsContent>
             </div>
           </Tabs>
         </div>
       </div>
-      <ChatInterface />
+      <ErrorBoundary>
+        <ChatInterface />
+      </ErrorBoundary>
     </>
   );
 }
