@@ -12,40 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusCircle, ArrowUpRight, AlertCircle } from "lucide-react";
+import { PlusCircle, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { ConnectWallet } from "@/components/connect-wallet";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-
-// Error Boundary Component
-function ErrorBoundary({ children }: { children: React.ReactNode }) {
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    const handleError = (error: ErrorEvent) => {
-      console.error("Client error caught:", error);
-      setHasError(true);
-    };
-
-    window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
-  }, []);
-
-  if (hasError) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>
-          There was an error loading this component. Please try refreshing the page.
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  return children;
-}
 
 // Dynamically import components that use browser APIs to prevent SSR issues
 // Component loaders with fallbacks
@@ -103,25 +73,38 @@ const ChatInterface = dynamic(
 );
 
 export default function DashboardPage() {
-  const [isClientSide, setIsClientSide] = useState(false);
+  // Use a more reliable approach for client-side hydration
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  
-  // Safe access to wallet context with client-side check
-  const walletContext = useWallet();
-  const isConnected = walletContext?.isConnected;
+  const { isConnected } = useWallet();
 
   // Handle client-side hydration
   useEffect(() => {
-    setIsClientSide(true);
+    setMounted(true);
   }, []);
 
-  // Show a minimal UI during SSR
-  if (!isClientSide) {
+  // This ensures the component renders the same content server-side and client-side on first load
+  // to prevent hydration errors, then updates once mounted on the client
+  if (!mounted) {
     return (
       <div className="container py-8">
         <div className="flex flex-col gap-4">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-4 w-64" />
+          <div className="mt-8">
+            <div className="grid w-full grid-cols-3 lg:w-auto gap-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="mt-6 space-y-6">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -205,12 +188,8 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
-                  <ErrorBoundary>
-                    <PortfolioOverview />
-                  </ErrorBoundary>
-                  <ErrorBoundary>
-                    <ChainDistribution />
-                  </ErrorBoundary>
+                  <PortfolioOverview />
+                  <ChainDistribution />
                 </div>
 
                 <Card>
@@ -221,9 +200,7 @@ export default function DashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ErrorBoundary>
-                      <StrategyPreview />
-                    </ErrorBoundary>
+                    <StrategyPreview />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -300,17 +277,13 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="transactions">
-                <ErrorBoundary>
-                  <TransactionHistory />
-                </ErrorBoundary>
+                <TransactionHistory />
               </TabsContent>
             </div>
           </Tabs>
         </div>
       </div>
-      <ErrorBoundary>
-        <ChatInterface />
-      </ErrorBoundary>
+      <ChatInterface />
     </>
   );
 }
