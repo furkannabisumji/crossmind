@@ -8,42 +8,30 @@ const nextConfig = {
   images: { unoptimized: true },
   // Add React strict mode for better error detection
   reactStrictMode: true,
-  
-  // Optimize chunk loading to prevent chunk load failures
-  webpack: (config, { isServer }) => {
-    // Optimize client-side chunk loading
+
+  // Next.js 15 optimizations
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
+
+  // Prevent CSS flashing during development
+  compiler: {
+    // Improve CSS stability
+    reactRemoveProperties: process.env.NODE_ENV === "production",
+  },
+
+  // Simple optimization for Next.js 15
+  webpack: (config, { isServer, dev }) => {
+    // Add stability improvements for development
     if (!isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        minSize: 20000,
-        maxSize: 90000,
-        cacheGroups: {
-          default: false,
-          vendors: false,
-          framework: {
-            name: 'framework',
-            chunks: 'all',
-            test: /[\\/]node_modules[\\/](@vercel\/analytics|react|react-dom|scheduler|next|use-sync-external-store)[\\/]/,
-            priority: 40,
-            enforce: true,
-          },
-          commons: {
-            name: 'commons',
-            chunks: 'all',
-            minChunks: 2,
-            priority: 20,
-          },
-          lib: {
-            test: /[\\/]node_modules[\\/]/,
-            chunks: 'all',
-            name(module) {
-              const packageName = module.context.match(/[\\/]node_modules[\\/](.+?)(?:[\\/]|$)/)[1];
-              return `npm.${packageName.replace('@', '')}`;
-            },
-            priority: 10,
-          },
-        },
-      };
+      // Ensure stable chunk IDs
+      config.optimization.chunkIds = 'deterministic';
+      
+      // Improve module resolution stability
+      config.optimization.moduleIds = 'deterministic';
+      
+      // Use single runtime chunk for better CSS stability
+      config.optimization.runtimeChunk = 'single';
     }
     return config;
   },

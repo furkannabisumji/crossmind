@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import { fontFamily } from 'tailwindcss/defaultTheme';
 
 const config: Config = {
   darkMode: ['class'],
@@ -7,7 +8,36 @@ const config: Config = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  // Optimize CSS generation to prevent flashing
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
+  // Improve CSS stability during development
+  safelist: [
+    'animate-in',
+    'fade-in',
+    'slide-in',
+    'bg-green-500/20',
+    'bg-yellow-500/20',
+    'bg-blue-500/20',
+    'text-green-500',
+    'text-yellow-500',
+    'text-blue-500',
+    'border-green-500/50',
+    'border-yellow-500/50',
+    'border-blue-500/50',
+  ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    fontFamily: {
+      sans: ["var(--font-inter)", ...fontFamily.sans],
+    },
     extend: {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

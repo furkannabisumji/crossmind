@@ -1,6 +1,13 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, ArrowUpRight } from "lucide-react";
@@ -22,21 +29,33 @@ type StrategyCardProps = {
 export function StrategyCard({ strategy, onClick }: StrategyCardProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     }).format(date);
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Badge className="bg-green-500/20 text-green-500 border-green-500/50">Active</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Pending Approval</Badge>;
-      case 'draft':
-        return <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/50">Draft</Badge>;
+      case "active":
+        return (
+          <Badge className="bg-green-500/20 text-green-500 border-green-500/50">
+            Active
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">
+            Pending
+          </Badge>
+        );
+      case "draft":
+        return (
+          <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/50">
+            Draft
+          </Badge>
+        );
       default:
         return null;
     }
@@ -63,7 +82,7 @@ export function StrategyCard({ strategy, onClick }: StrategyCardProps) {
               <p className="font-medium">{strategy.estimatedApy}</p>
             </div>
           </div>
-          
+
           <div>
             <p className="text-sm text-muted-foreground mb-2">Chains</p>
             <div className="flex flex-wrap gap-2">

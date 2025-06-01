@@ -94,3 +94,20 @@
     @apply mx-auto px-4 max-w-7xl;
   }
 }
+
+/* CSS Stabilization - Simplified */
+.css-stabilized {
+  opacity: 1 !important;
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Smooth transitions for all elements */
+.transition-all {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Ensure animations are smooth */
+.animate-in {
+  animation-duration: 300ms;
+  animation-timing-function: ease-in-out;
+}

@@ -23,6 +23,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -73,26 +74,25 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="container py-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your account and application preferences
-          </p>
+    <div className="container py-8 animate-in fade-in duration-300">
+      <ErrorBoundary>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+            <p className="text-muted-foreground">
+              Manage your account and application preferences
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="mt-8">
-        <Tabs defaultValue="general" onValueChange={setActiveTab} value={activeTab}>
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          </TabsList>
-          
-          <div className="mt-6">
+        <div className="mt-8">
+          <Tabs defaultValue="general" onValueChange={setActiveTab} value={activeTab}>
+            <TabsList className="grid w-full grid-cols-4 lg:w-auto">
+              <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="notifications">Notifications</TabsTrigger>
+              <TabsTrigger value="security">Security</TabsTrigger>
+              <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            </TabsList>
             <TabsContent value="general" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -400,9 +400,9 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-          </div>
-        </Tabs>
-      </div>
+          </Tabs>
+        </div>
+      </ErrorBoundary>
     </div>
   );
 }

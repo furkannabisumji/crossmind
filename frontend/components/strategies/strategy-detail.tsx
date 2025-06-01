@@ -1,10 +1,28 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, PieChart, Pie, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  BarChart,
+  PieChart,
+  Pie,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { Calendar, Activity, Clock, ArrowUpRight } from "lucide-react";
 
 type Strategy = {
@@ -30,21 +48,33 @@ type StrategyDetailProps = {
 export function StrategyDetail({ strategy }: StrategyDetailProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
+    return new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
     }).format(date);
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Badge className="bg-green-500/20 text-green-500 border-green-500/50">Active</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Pending Approval</Badge>;
-      case 'draft':
-        return <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/50">Draft</Badge>;
+      case "active":
+        return (
+          <Badge className="bg-green-500/20 text-green-500 border-green-500/50">
+            Active
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">
+            Pending{" "}
+          </Badge>
+        );
+      case "draft":
+        return (
+          <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/50">
+            Draft
+          </Badge>
+        );
       default:
         return null;
     }
@@ -61,42 +91,44 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
     percentage: item.percentage,
   }));
 
-  const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+  const COLORS = [
+    "hsl(var(--chart-1))",
+    "hsl(var(--chart-2))",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-4))",
+    "hsl(var(--chart-5))",
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">{strategy.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {strategy.name}
+            </h1>
             {getStatusBadge(strategy.status)}
           </div>
-          <p className="text-muted-foreground mt-1">
-            {strategy.description}
-          </p>
+          <p className="text-muted-foreground mt-1">{strategy.description}</p>
         </div>
         <div className="flex gap-2">
-          {strategy.status === 'pending' && (
+          {strategy.status === "pending" && (
             <>
               <Button variant="outline">Reject</Button>
               <Button>Approve</Button>
             </>
           )}
-          {strategy.status === 'active' && (
+          {strategy.status === "active" && (
             <Button variant="outline">Deactivate</Button>
           )}
-          {strategy.status === 'draft' && (
-            <Button>Finalize</Button>
-          )}
+          {strategy.status === "draft" && <Button>Finalize</Button>}
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Risk Level
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Risk Level</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{strategy.riskLevel}</div>
@@ -104,9 +136,7 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Estimated APY
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Estimated APY</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{strategy.estimatedApy}</div>
@@ -114,9 +144,7 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Created On
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Created On</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center">
@@ -127,9 +155,7 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Chains
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Chains</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
@@ -149,7 +175,7 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="allocation" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
@@ -171,10 +197,15 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
                         outerRadius={80}
                         paddingAngle={2}
                         dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) =>
+                          `${name} ${(percent * 100).toFixed(0)}%`
+                        }
                       >
                         {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
                         ))}
                       </Pie>
                       <Tooltip formatter={(value) => `${value}%`} />
@@ -184,13 +215,19 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
                 <div className="h-[300px] flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={barData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                      />
                       <XAxis dataKey="name" />
                       <YAxis tickFormatter={(value) => `${value}%`} />
                       <Tooltip formatter={(value) => `${value}%`} />
                       <Bar dataKey="percentage" fill="hsl(var(--primary))">
                         {barData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
                         ))}
                       </Bar>
                     </BarChart>
@@ -205,7 +242,9 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
               <Card key={index}>
                 <CardHeader>
                   <CardTitle>{item.chain}</CardTitle>
-                  <CardDescription>{item.percentage}% Allocation</CardDescription>
+                  <CardDescription>
+                    {item.percentage}% Allocation
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -219,7 +258,7 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
                         ))}
                       </div>
                     </div>
-                    
+
                     <Button variant="outline" size="sm" className="w-full">
                       View Details <ArrowUpRight className="ml-1 h-3 w-3" />
                     </Button>
@@ -242,7 +281,8 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
               <div className="flex items-center justify-center h-64">
                 <Activity className="h-16 w-16 text-muted-foreground" />
                 <p className="ml-4 text-muted-foreground">
-                  Performance data will be available once the strategy is active.
+                  Performance data will be available once the strategy is
+                  active.
                 </p>
               </div>
             </CardContent>
@@ -270,8 +310,8 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
                     </p>
                   </div>
                 </div>
-                
-                {strategy.status === 'active' && (
+
+                {strategy.status === "active" && (
                   <div className="flex">
                     <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full border">
                       <Activity className="h-5 w-5 text-muted-foreground" />
@@ -279,7 +319,11 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
                     <div>
                       <p className="font-medium">Strategy activated</p>
                       <p className="text-sm text-muted-foreground">
-                        {formatDate(new Date(new Date(strategy.createdAt).getTime() + 86400000).toString())}
+                        {formatDate(
+                          new Date(
+                            new Date(strategy.createdAt).getTime() + 86400000
+                          ).toString()
+                        )}
                       </p>
                     </div>
                   </div>
