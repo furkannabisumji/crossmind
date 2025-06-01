@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 142 76% 36%;
+    --radius: 0.65rem;
+    --chart-1: 142 76% 50%;
+    --chart-2: 25 95% 53%;
+    --chart-3: 217 91% 60%;
+    --chart-4: 262 83% 58%;
+    --chart-5: 346 87% 43%;
+  }
+  .dark {
+    /* Main background - deep black with subtle warmth */
+    --background: 0 0% 3.5%;
+    --foreground: 0 0% 95%;
+    
+    /* Cards - slightly lighter black/charcoal */
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 95%;
+    
+    /* Popovers and modals */
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 95%;
+    
+    /* Primary - vibrant green accent */
+    --primary: 142 76% 50%;
+    --primary-foreground: 0 0% 8%;
+    
+    /* Secondary elements - dark gray */
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 90%;
+    
+    /* Muted backgrounds and text */
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 60%;
+    
+    /* Accent - subtle green tint */
+    --accent: 142 15% 12%;
+    --accent-foreground: 142 76% 85%;
+    
+    /* Destructive actions - red */
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 98%;
+    
+    /* Borders and inputs - dark with green hint */
+    --border: 142 10% 15%;
+    --input: 142 8% 12%;
+    --ring: 142 76% 50%;
+    
+    /* Chart colors for crypto dashboard */
+    --chart-1: 142 76% 50%; /* Primary green */
+    --chart-2: 142 60% 40%; /* Darker green */
+    --chart-3: 142 85% 60%; /* Bright green */
+    --chart-4: 25 95% 53%;  /* Orange for contrast */
+    --chart-5: 0 75% 55%;   /* Red for losses */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  .container {
+    @apply mx-auto px-4 max-w-7xl;
+  }
+}
