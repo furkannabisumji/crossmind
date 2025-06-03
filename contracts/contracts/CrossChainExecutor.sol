@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
+import "./StrategyManager.sol";
+import "./AdapterRegisty.sol";
+import {IRouterClient} from "@chainlink/contracts-ccip/contracts/interfaces/IRouterClient.sol";
 import {OwnerIsCreator} from "@chainlink/contracts/src/v0.8/shared/access/OwnerIsCreator.sol";
-import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
-import {CCIPReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol";
-import {IERC20} from "@chainlink/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@chainlink/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
+import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/applications/CCIPReceiver.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
-    using SafeERC20 for IERC20;
+    address private immutable i_staker;
+
 
     error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees); 
     error NothingToWithdraw(); 
@@ -19,7 +21,7 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
         bytes32 indexed messageId,
         uint64 indexed destinationChainSelector,
         address receiver,
-        bytes text,
+        string action,
         address feeToken,
         uint256 fees
     );
@@ -27,35 +29,57 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
     event MessageReceived(
         bytes32 indexed messageId,
         uint64 indexed sourceChainSelector,
-        address sender,
-        string text 
+        address sender
     );
 
     bytes32 private s_lastReceivedMessageId; 
     string private s_lastReceivedText;
     address private sender;
     IRouterClient private s_router;
+    IERC20 private s_token;
     IERC20 private s_linkToken;
+    AdapterRegistry private s_adapterRegistry;
+    StrategyManager private s_strategyManager;
+    address private s_vault;
 
-    constructor(address _router, address _link,address _sender) CCIPReceiver(_router) {
+    constructor(address _router, address _link,address _sender,address _staker,address _token,address _adapterRegistry,address _strategyManager,address _vault) CCIPReceiver(_router) {
         s_router = IRouterClient(_router);
         s_linkToken = IERC20(_link);
         sender = _sender;
+        i_staker = _staker;
+        s_token = IERC20(_token);
+        s_adapterRegistry = AdapterRegistry(_adapterRegistry);
+        s_strategyManager = StrategyManager(_strategyManager);
+        s_vault = _vault;
     }
    function sendMessageOrToken(
         uint64 destinationChainSelector,
         address receiver,
-        bytes memory text,
-        address token,
+        string memory action,
+        uint256 index,
+        StrategyManager.Deposit[] memory deposits,
         uint256 amount
     ) external returns (bytes32 messageId) {
         require(sender == msg.sender, "Unauthorised");
+        Client.EVMTokenAmount[] memory tokenAmounts;
+        if (keccak256(bytes(action)) != keccak256(bytes("exitStrategyRequest"))) {
+            tokenAmounts = new Client.EVMTokenAmount[](1);
+            tokenAmounts[0] = Client.EVMTokenAmount({
+                token: address(s_token),
+                amount: amount
+            });
+            
+            s_token.approve(address(s_router), amount);
+        } else {
+            tokenAmounts = new Client.EVMTokenAmount[](0);
+        }
+        
         Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
             receiver: abi.encode(receiver),
-            data: text,
-            tokenAmounts: new Client.EVMTokenAmount[](0),
+            data: abi.encode(action,index, deposits, amount),
+            tokenAmounts: tokenAmounts,
             extraArgs: Client._argsToBytes(
-                Client.EVMExtraArgsV2({
+                Client.GenericExtraArgsV2({
                     gasLimit: 400_000,
                     allowOutOfOrderExecution: true
                 })
@@ -74,7 +98,7 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
             messaged,
             destinationChainSelector,
             receiver,
-            text,
+            action,
             address(0),
             fee
         );
@@ -89,12 +113,28 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
     {
         s_lastReceivedMessageId = any2EvmMessage.messageId;
         s_lastReceivedText = abi.decode(any2EvmMessage.data, (string));
-
+        if (any2EvmMessage.destTokenAmounts[0].token != address(0)) {
+            (bool success,) = i_staker.call(
+                any2EvmMessage.data
+            );
+            require(success, "Staker call failed");
+        }
+        (string memory action,uint256 index, StrategyManager.Deposit[] memory deposits, uint256 amount) = abi.decode(any2EvmMessage.data, (string, uint256, StrategyManager.Deposit[], uint256));
+        if (keccak256(bytes(action)) == keccak256(bytes("exitStrategyRequest"))) {
+            s_adapterRegistry.withdraw(index);
+        }
+        if (keccak256(bytes(action)) == keccak256(bytes("exitStrategy"))) {
+            IERC20(s_token).transfer(s_vault, amount);
+            s_strategyManager.exitStrategy(any2EvmMessage.sourceChainSelector);
+        }
+        if (keccak256(bytes(action)) == keccak256(bytes("executeStrategy"))) {
+            IERC20(s_token).transfer(address(s_adapterRegistry), amount);
+            s_adapterRegistry.invest(deposits, index, amount);
+        }
         emit MessageReceived(
             any2EvmMessage.messageId,
             any2EvmMessage.sourceChainSelector,
-            abi.decode(any2EvmMessage.sender, (address)),
-            abi.decode(any2EvmMessage.data, (string))
+            abi.decode(any2EvmMessage.sender, (address))
         );
     }
 
@@ -106,6 +146,6 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
 
         if (amount == 0) revert NothingToWithdraw();
 
-        IERC20(_token).safeTransfer(_beneficiary, amount);
+        IERC20(_token).transfer(_beneficiary, amount);
     }
 }
