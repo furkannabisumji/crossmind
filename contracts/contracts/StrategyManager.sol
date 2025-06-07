@@ -53,10 +53,13 @@ contract StrategyManager is Ownable, ReentrancyGuard {
 
     // Events
     event StrategyExecuted(address user, uint256 amount);
+    event AddressesUpdated(address indexed vault, address indexed executor);
 
-    constructor(address _vault, address _executor) {
+    function initialize(address _vault, address _executor) external onlyOwner {
+        require(address(vault) == address(0) && address(executor) == address(0), "Already initialized");
         vault = CrossMindVault(_vault);
         executor = CrossChainExecutor(_executor);
+        emit AddressesUpdated(_vault, _executor);
     }
     
     /**
@@ -74,6 +77,7 @@ contract StrategyManager is Ownable, ReentrancyGuard {
         validateStrategy(strategy);
         
         // Lock the vault to prevent withdrawals during strategy execution
+        IERC20(vault.token()).transfer(address(executor), balance.amount);
         vault.lock(msg.sender, index);
         
         // Execute strategy for each chain
@@ -195,6 +199,11 @@ contract StrategyManager is Ownable, ReentrancyGuard {
         return (totalAmount * chainPercentage) / 100;
     }
 
+    /**
+     * @notice Add a supported chain ID with its receiver address
+     * @param chainId Chain ID to add support for
+     * @param receiver Address of the receiver contract on the target chain
+     */
     function addSupportedChainId(uint64 chainId, address receiver) external onlyOwner {
         require(!isSupportedChainId(chainId), "Chain ID already supported");
         chains[chainId] = Chain({
@@ -222,6 +231,10 @@ contract StrategyManager is Ownable, ReentrancyGuard {
                 return;
             }
         }
+    }
+
+    function token() external view returns (address) {
+        return vault.token();
     }
 
     function getProtocols(uint64 chainId) external view returns (Protocol[] memory) {

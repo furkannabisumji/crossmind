@@ -6,6 +6,8 @@ const networkConfig = {
         jobId: "29fa9aa13bf1468788b7cc4a500a45b8",
         fundAmount: "1000000000000000000",
         automationUpdateInterval: "30",
+        ccipRouter: "0x0000000000000000000000000000000000000000",
+        linkToken: "0x0000000000000000000000000000000000000000",
     },
     31337: {
         name: "localhost",
@@ -57,6 +59,38 @@ const networkConfig = {
         fee: "100000000000000000",
         fundAmount: "100000000000000000", // 0.1
         automationUpdateInterval: "30",
+        ccipRouter: "0x70499c328e1e2a3c41108bd3730f6670a44595d1",
+    },
+    43114: {
+        name: "avalanche",
+        linkToken: "0x5947BB275c521040051D82396192181b413227A3",
+        ethUsdPriceFeed: "0x976B3D034E162d8bD72D6b9C989d545b839003b0",
+        ccipRouter: "0x52C84043CD9c865236f11d9Fc9F56aa003c1f922",
+        fee: "100000000000000000",
+        fundAmount: "100000000000000000", // 0.1
+    },
+    42161: {
+        name: "arbitrum",
+        linkToken: "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+        ethUsdPriceFeed: "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
+        ccipRouter: "0x141fa059441E0ca23ce184B6A78bafD2A517DdE8",
+        fee: "100000000000000000",
+        fundAmount: "100000000000000000", // 0.1
+    },
+    8453: {
+        name: "base",
+        linkToken: "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196",
+        ccipRouter: "0x673AA85efd75080031d44F6A8F5e26b9C43571e4",
+        fee: "100000000000000000",
+        fundAmount: "100000000000000000", // 0.1
+    },
+    10: {
+        name: "optimism",
+        linkToken: "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6",
+        ethUsdPriceFeed: "0x13e3Ee699D1909E989722E753853AE30b17e08c5",
+        ccipRouter: "0x261c05167db67B2B619f9d312e0753f3721ad6E8",
+        fee: "100000000000000000",
+        fundAmount: "100000000000000000", // 0.1
     },
 }
 

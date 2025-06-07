@@ -3,13 +3,11 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./StrategyManager.sol";
-import "./CrossChainExecutor.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract CrossMindVault is Ownable {
-    address public token;
+    address public constant token = 0x5425890298aed601595a70AB815c96711a31Bc65;
     StrategyManager public strategyManager;
-    CrossChainExecutor public executor;
 
     struct Balance {
         uint256 amount;
@@ -22,10 +20,8 @@ contract CrossMindVault is Ownable {
     event Withdrawn(address indexed user, uint256 amount);
     event Lock(address indexed user);
     event ProcessWithdraw(address indexed user, uint256 amount);
-    constructor(address _token, address _strategyManager, address _executor) {
-        token = _token;
+    constructor(address _strategyManager) {
         strategyManager = StrategyManager(_strategyManager);
-        executor = CrossChainExecutor(_executor);
     }
 
     modifier onlyStrategyManager() {
@@ -62,7 +58,7 @@ contract CrossMindVault is Ownable {
 
     function lock(address user, uint256 _index) external onlyStrategyManager {
         balances[user][_index].locked = true;
-        IERC20(token).transfer(address(executor), balances[user][_index].amount);
+        IERC20(token).transfer(address(strategyManager), balances[user][_index].amount);
         emit Lock(user);
     }
 

@@ -10,7 +10,6 @@ import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/applications/CCI
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
-    address private immutable i_staker;
 
 
     error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees); 
@@ -34,20 +33,15 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
 
     bytes32 private s_lastReceivedMessageId; 
     string private s_lastReceivedText;
-    address private sender;
     IRouterClient private s_router;
-    IERC20 private s_token;
     IERC20 private s_linkToken;
     AdapterRegistry private s_adapterRegistry;
     StrategyManager private s_strategyManager;
     address private s_vault;
 
-    constructor(address _router, address _link,address _sender,address _staker,address _token,address _adapterRegistry,address _strategyManager,address _vault) CCIPReceiver(_router) {
+    constructor(address _router, address _link,address _adapterRegistry,address _strategyManager,address _vault) CCIPReceiver(_router) {
         s_router = IRouterClient(_router);
         s_linkToken = IERC20(_link);
-        sender = _sender;
-        i_staker = _staker;
-        s_token = IERC20(_token);
         s_adapterRegistry = AdapterRegistry(_adapterRegistry);
         s_strategyManager = StrategyManager(_strategyManager);
         s_vault = _vault;
@@ -60,16 +54,17 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
         StrategyManager.Deposit[] memory deposits,
         uint256 amount
     ) external returns (bytes32 messageId) {
-        require(sender == msg.sender, "Unauthorised");
+        require(address(s_strategyManager) == msg.sender || address(s_adapterRegistry) == msg.sender, "Unauthorised");
+        IERC20 token = IERC20(msg.sender == address(s_strategyManager) ? s_strategyManager.token() : s_adapterRegistry.token());
         Client.EVMTokenAmount[] memory tokenAmounts;
         if (keccak256(bytes(action)) != keccak256(bytes("exitStrategyRequest"))) {
             tokenAmounts = new Client.EVMTokenAmount[](1);
             tokenAmounts[0] = Client.EVMTokenAmount({
-                token: address(s_token),
+                token: address(token),
                 amount: amount
             });
             
-            s_token.approve(address(s_router), amount);
+            token.approve(address(s_router), amount);
         } else {
             tokenAmounts = new Client.EVMTokenAmount[](0);
         }
@@ -113,22 +108,17 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
     {
         s_lastReceivedMessageId = any2EvmMessage.messageId;
         s_lastReceivedText = abi.decode(any2EvmMessage.data, (string));
-        if (any2EvmMessage.destTokenAmounts[0].token != address(0)) {
-            (bool success,) = i_staker.call(
-                any2EvmMessage.data
-            );
-            require(success, "Staker call failed");
-        }
+
         (string memory action,uint256 index, StrategyManager.Deposit[] memory deposits, uint256 amount) = abi.decode(any2EvmMessage.data, (string, uint256, StrategyManager.Deposit[], uint256));
         if (keccak256(bytes(action)) == keccak256(bytes("exitStrategyRequest"))) {
             s_adapterRegistry.withdraw(index);
         }
         if (keccak256(bytes(action)) == keccak256(bytes("exitStrategy"))) {
-            IERC20(s_token).transfer(s_vault, amount);
+            IERC20(s_strategyManager.token()).transfer(s_vault, amount);
             s_strategyManager.exitStrategy(any2EvmMessage.sourceChainSelector);
         }
         if (keccak256(bytes(action)) == keccak256(bytes("executeStrategy"))) {
-            IERC20(s_token).transfer(address(s_adapterRegistry), amount);
+            IERC20(s_adapterRegistry.token()).transfer(address(s_adapterRegistry), amount);
             s_adapterRegistry.invest(deposits, index, amount);
         }
         emit MessageReceived(

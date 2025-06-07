@@ -6,22 +6,29 @@
 // global scope, and execute the script.
 const { network, run } = require("hardhat")
 
-const { deployApiConsumer } = require("./deployApiConsumer")
-const { deployAutomationCounter } = require("./deployAutomationCounter")
-const { deployPriceConsumerV3 } = require("./deployPriceConsumerV3")
-const { deployRandomNumberConsumer } = require("./deployRandomNumberConsumer")
-const {
-    deployRandomNumberDirectFundingConsumer,
-} = require("./deployRandomNumberDirectFundingConsumer")
+const { deployCrossMindContracts } = require("./deployCrossMindContracts")
+const fs = require("fs")
 
 async function main() {
     await run("compile")
     const chainId = network.config.chainId
-    await deployApiConsumer(chainId)
-    await deployAutomationCounter(chainId)
-    await deployPriceConsumerV3(chainId)
-    await deployRandomNumberConsumer(chainId)
-    await deployRandomNumberDirectFundingConsumer(chainId)
+    const networkName = network.name
+    
+    // Deploy CrossMind contracts
+    console.log(`Deploying CrossMind contracts to ${networkName} (Chain ID: ${chainId})...`)
+    const deployedContracts = await deployCrossMindContracts(chainId)
+    
+    // Save deployed contract addresses to a JSON file
+    const deploymentPath = `./deployments/${networkName}`
+    if (!fs.existsSync(deploymentPath)) {
+        fs.mkdirSync(deploymentPath, { recursive: true })
+    }
+    
+    fs.writeFileSync(
+        `${deploymentPath}/CrossMindDeployment.json`,
+        JSON.stringify(deployedContracts, null, 2)
+    )
+    console.log(`Deployment addresses saved to ${deploymentPath}/CrossMindDeployment.json`)
 }
 
 // We recommend this pattern to be able to use async/await everywhere

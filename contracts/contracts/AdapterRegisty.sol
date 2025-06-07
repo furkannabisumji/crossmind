@@ -9,7 +9,7 @@ import "./CrossChainExecutor.sol";
 contract AdapterRegistry is Ownable {
     address[] public adapters;
     address immutable receiver;
-    uint64 immutable chainId;
+    uint64 constant chainId = 14767482510784806043;
     address public token;
     CrossChainExecutor public executor;
 
@@ -23,15 +23,15 @@ contract AdapterRegistry is Ownable {
     event AdapterAdded(address indexed adapter);
     event AdapterRemoved(address indexed adapter);
     event Withdrawn(address indexed user, uint256 amount);
+    event ExecutorUpdated(address indexed oldExecutor, address indexed newExecutor);
     modifier onlyExecutor() {
         require(msg.sender == address(executor), "Not executor");
         _;
     }
-    constructor(address _token, address _executor, address _receiver, uint64 _chainId) {
+    constructor(address _token, address _executor, address _receiver) {
         token = _token;
         executor = CrossChainExecutor(_executor);
         receiver = _receiver;
-        chainId = _chainId;
     }
     function invest(StrategyManager.Deposit[] memory _deposits, uint256 _index, uint256 _amount) external onlyExecutor {
         for (uint256 i = 0; i < _deposits.length; i++) {
@@ -97,5 +97,15 @@ contract AdapterRegistry is Ownable {
 
     function getBalance(uint256 _index) public view returns (Balance[] memory) {
         return balances[_index];
+    }
+    
+    /**
+     * @notice Update the executor address
+     * @param _executor New executor address
+     */
+    function updateExecutor(address _executor) external onlyOwner {
+        address oldExecutor = address(executor);
+        executor = CrossChainExecutor(_executor);
+        emit ExecutorUpdated(oldExecutor, _executor);
     }
 }

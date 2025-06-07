@@ -3,7 +3,8 @@ import 'dotenv/config';
 import { 
   strategyRoutes,
   agentRoutes,
-  marketDataRoutes 
+  marketDataRoutes,
+  contractRoutes 
 } from './routes/';
 import { errorHandler } from './middleware';
 // Create Express application
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/api/strategies', strategyRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/market-data', marketDataRoutes);
+app.use('/api/contracts', contractRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
