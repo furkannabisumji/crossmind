@@ -33,15 +33,19 @@ contract AdapterRegistry is Ownable {
         executor = CrossChainExecutor(_executor);
         receiver = _receiver;
     }
-    function invest(StrategyManager.Deposit[] memory _deposits, uint256 _index, uint256 _amount) external onlyExecutor {
+    function invest(StrategyManager.ChainDeposit[] memory _deposits, uint256 _index, uint256 _amount) external onlyExecutor {
         for (uint256 i = 0; i < _deposits.length; i++) {
-            require(isAdapter(_deposits[i].adapter), "Adapter not registered");
-            uint256 amount = (_amount * _deposits[i].percentage) / 100;
-            IStrategyAdapter(_deposits[i].adapter).invest(amount, token);
-            balances[_index].push(Balance({
-                adapter: _deposits[i].adapter,
-                amount: amount
-            }));
+            // Process each adapter deposit within this chain deposit
+            for (uint256 j = 0; j < _deposits[i].deposits.length; j++) {
+                StrategyManager.AdapterDeposit memory adapterDeposit = _deposits[i].deposits[j];
+                require(isAdapter(adapterDeposit.adapter), "Adapter not registered");
+                uint256 amount = (_amount * adapterDeposit.percentage) / 100;
+                IStrategyAdapter(adapterDeposit.adapter).invest(amount, token);
+                balances[_index].push(Balance({
+                    adapter: adapterDeposit.adapter,
+                    amount: amount
+                }));
+            }
         }
     }
 
@@ -59,7 +63,7 @@ contract AdapterRegistry is Ownable {
             receiver,
             "withdraw",
             _index,
-            new StrategyManager.Deposit[](0),
+            new StrategyManager.ChainDeposit[](0),
             amount
         );
         delete balances[_index];

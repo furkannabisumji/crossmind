@@ -9,8 +9,14 @@ contract CrossMindVault is Ownable {
     address public constant token = 0x5425890298aed601595a70AB815c96711a31Bc65;
     StrategyManager public strategyManager;
 
+    enum Risk {
+        LOW,
+        MEDIUM,
+        HIGH
+    }
     struct Balance {
         uint256 amount;
+        Risk risk;
         bool locked;
     }
     
@@ -31,11 +37,12 @@ contract CrossMindVault is Ownable {
 
     mapping(address => Balance[]) public balances;
 
-    function deposit(uint256 _amount) external {
+    function deposit(uint256 _amount, Risk _risk) external {
         IERC20(token).transferFrom(msg.sender, address(this), _amount);
         totalAmount += _amount;
         balances[msg.sender].push(Balance({
             amount: _amount,
+            risk: _risk,
             locked: false
         }));
         emit Deposit(msg.sender, _amount);

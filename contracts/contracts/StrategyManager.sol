@@ -15,22 +15,28 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     
     CrossMindVault public vault;
     CrossChainExecutor public executor;
-    struct Deposit {
+    struct AdapterDeposit {
         address adapter;
         uint256 percentage;
     }
-    
-    struct Strategy {
-        uint64 chainId;
-        uint256 index;
-        Deposit[] deposits;
-    }
 
-    struct ExecutedStrategy {
-        uint256 index;
+    struct ChainDeposit {
         uint64 chainId;
-        bool exited;
         uint256 amount;
+        AdapterDeposit[] deposits;
+    }
+    enum Status {
+        PENDING,
+        REGISTERED,
+        EXECUTED,
+        REJECTED,
+        EXITED
+    }
+    struct Strategy {
+        uint256 index;
+        Status status;
+        uint256 amount;
+        ChainDeposit[] deposits;
     }
 
     struct Protocol {
@@ -48,11 +54,12 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     // Mapping from chainId to adapter addresses
     mapping(uint64 => Chain) public chains;
 
-    // Mapping user to vault
-    mapping(address => ExecutedStrategy[]) public vaults;
+    // Mapping user to strategies
+    mapping(address => Strategy[]) public vaults;
 
     // Events
-    event StrategyExecuted(address user, uint256 amount);
+    event StrategyRegistered(address user, uint256 amount, uint256 index);
+    event StrategyExecuted(address user, uint256 amount, uint256 index, bool accepted);
     event AddressesUpdated(address indexed vault, address indexed executor);
 
     function initialize(address _vault, address _executor) external onlyOwner {
@@ -63,11 +70,11 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     }
     
     /**
-     * @notice Executes a single strategy
-     * @param strategy Array of strategies to execute
+     * @notice Registers a strategy by the AI agent for the user to execute
+     * @param strategy Strategy to execute
      * @param index Index of the balance to use
      */
-    function executeStrategy(Strategy[] calldata strategy, uint256 index) external nonReentrant {
+    function registerStrategy(Strategy calldata strategy, uint256 index) external onlyOwner {
         // Get user balance and validate it
         CrossMindVault.Balance memory balance = vault.getBalance(msg.sender)[index];
         require(!balance.locked, "Vault is locked");
@@ -76,62 +83,107 @@ contract StrategyManager is Ownable, ReentrancyGuard {
         // Validate strategy configuration
         validateStrategy(strategy);
         
+        // Calculate amounts for each chain deposit based on percentages
+        ChainDeposit[] memory calculatedDeposits = new ChainDeposit[](strategy.deposits.length);
+        
+        for (uint256 i = 0; i < strategy.deposits.length; i++) {
+            ChainDeposit memory chainDeposit = strategy.deposits[i];
+            
+            // Calculate the total amount for this chain
+            uint256 chainAmount = calculateChainAmount(chainDeposit, balance.amount);
+            
+            // Store the calculated deposit with updated amount
+            calculatedDeposits[i] = ChainDeposit({
+                chainId: chainDeposit.chainId,
+                amount: chainAmount,
+                deposits: chainDeposit.deposits
+            });
+        }
+        
+        // Store the strategy in the user's vault
+        vaults[msg.sender].push(Strategy(
+            index,
+            Status.REGISTERED,
+            balance.amount,
+            calculatedDeposits
+        ));
+        
+        emit StrategyRegistered(msg.sender, balance.amount, index);
+    }
+
+    /**
+     * @notice Confirms a strategy
+     * @param index Index of the strategy to confirm
+     * @param accepted Whether the strategy was accepted or rejected
+     */
+    function confirmStrategy(uint256 index, bool accepted) external nonReentrant {
+        Strategy memory strategy = vaults[msg.sender][index];
+        require(strategy.status == Status.REGISTERED, "Strategy not registered");
+        if (!accepted) {
+            strategy.status = Status.REJECTED;
+            emit StrategyExecuted(msg.sender, strategy.amount, index, false);
+            return;
+        }
+
+        // Get user balance and validate it
+        CrossMindVault.Balance memory balance = vault.getBalance(msg.sender)[index];
+        require(!balance.locked, "Vault is locked");
+        require(balance.amount > 0, "No balance");
+        
         // Lock the vault to prevent withdrawals during strategy execution
         IERC20(vault.token()).transfer(address(executor), balance.amount);
         vault.lock(msg.sender, index);
         
         // Execute strategy for each chain
-        for (uint256 i = 0; i < strategy.length; i++) {
+        for (uint256 i = 0; i < strategy.deposits.length; i++) {
             // Calculate amount for this chain based on percentages
-            uint256 chainAmount = calculateChainAmount(strategy[i], balance.amount);
+            uint256 chainAmount = calculateChainAmount(strategy.deposits[i], balance.amount);
             
             // Send cross-chain message with strategy data and amount
             executor.sendMessageOrToken(
-                strategy[i].chainId,
-                chains[strategy[i].chainId].receiver,
+                strategy.deposits[i].chainId,
+                chains[strategy.deposits[i].chainId].receiver,
                 "executeStrategy",
-                strategy[i].index,
-                strategy[i].deposits,
+                index,
+                strategy.deposits,
                 chainAmount
             );
-            vaults[msg.sender].push(ExecutedStrategy({
-                chainId: strategy[i].chainId,
-                index: strategy[i].index,
-                exited: false,
-                amount: chainAmount
-            }));
+            vaults[msg.sender][index].status = Status.EXECUTED;
         }
         
-        emit StrategyExecuted(msg.sender, balance.amount);
+        emit StrategyExecuted(msg.sender, strategy.amount, index, true);
     }
 
     function exitStrategyRequest(uint256 index) external nonReentrant {
-        ExecutedStrategy memory strategy = vaults[msg.sender][index];
-        require(strategy.chainId > 0, "No strategy");
-        executor.sendMessageOrToken(
-            strategy.chainId,
-            chains[strategy.chainId].receiver,
-            "exitStrategyRequest",
-            strategy.index,
-            new Deposit[](0),
-            strategy.amount
-        );
-        
+        Strategy memory strategy = vaults[msg.sender][index];
+        require(strategy.status == Status.EXECUTED, "Strategy not executed");
+        for (uint256 i = 0; i < strategy.deposits.length; i++) {
+            executor.sendMessageOrToken(
+                strategy.deposits[i].chainId,
+                chains[strategy.deposits[i].chainId].receiver,
+                "exitStrategyRequest",
+                strategy.index,
+                new ChainDeposit[](0),
+                strategy.amount
+            );
+        }
     }
 
     function exitStrategy(uint64 chainId) external {
         require(address(executor) == msg.sender, "Not executor");
-        ExecutedStrategy[] memory strategies = vaults[msg.sender];
+        Strategy[] memory strategies = vaults[msg.sender];
         uint256 strategyIndex = 0;
         bool found = false;
         
         // Find the strategy with the matching chainId
         for (uint256 i = 0; i < strategies.length; i++) {
-            if (strategies[i].chainId == chainId) {
-                strategies[i].exited = true;
-                strategyIndex = strategies[i].index;
-                found = true;
-                break;
+            for (uint256 j = 0; j < strategies[i].deposits.length; j++) {
+                if (strategies[i].deposits[j].chainId == chainId) {
+                    strategies[i].status = Status.EXITED;
+                    strategyIndex = strategies[i].index;
+                    found = true;
+                    break;
+                }
             }
         }
         
@@ -140,7 +192,7 @@ contract StrategyManager is Ownable, ReentrancyGuard {
         // Check if all strategies are exited
         bool allExited = true;
         for (uint256 i = 0; i < strategies.length; i++) {
-            if (!strategies[i].exited) {
+            if (strategies[i].status != Status.EXITED) {
                 allExited = false;
                 break;
             }
@@ -154,48 +206,56 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     
     /**
      * @notice Validates the strategy configuration
-     * @param strategy Array of strategies to validate
+     * @param strategy Strategy to validate
      */
-    function validateStrategy(Strategy[] calldata strategy) internal view {
+    function validateStrategy(Strategy calldata strategy) internal view {
         uint256 totalPercentage = 0;
-        uint256[] memory uniqueChains = new uint256[](strategy.length);
+        uint256[] memory uniqueChains = new uint256[](strategy.deposits.length);
         uint256 count = 0;
         
-        for (uint256 i = 0; i < strategy.length; i++) {
+        for (uint256 i = 0; i < strategy.deposits.length; i++) {
+            // Validate deposits for this chain
+            for (uint256 j = 0; j < strategy.deposits[i].deposits.length; j++) {
+                ChainDeposit memory chainDeposit = strategy.deposits[i];
+                
             // Validate chain is supported
-            require(isSupportedChainId(strategy[i].chainId), "Unsupported chain ID");
+            require(isSupportedChainId(chainDeposit.chainId), "Unsupported chain ID");
             
             // Check for duplicate chains
-            for (uint256 j = 0; j < count; j++) {
-                if (uniqueChains[j] == strategy[i].chainId) {
+            for (uint256 k = 0; k < count; k++) {
+                if (uniqueChains[k] == chainDeposit.chainId) {
                     revert("Chains must be unique");
                 }
             }
-            uniqueChains[count++] = strategy[i].chainId;
+            uniqueChains[count++] = chainDeposit.chainId;
             
-            // Validate deposits for this chain
-            for (uint256 j = 0; j < strategy[i].deposits.length; j++) {
-                require(strategy[i].deposits[j].percentage > 0, "Percentage must be greater than 0");
-                require(isProtocol(strategy[i].chainId, strategy[i].deposits[j].adapter), "Adapter not registered");
-                totalPercentage += strategy[i].deposits[j].percentage;
+                // Loop through all adapter deposits for this chain
+                for (uint256 k = 0; k < chainDeposit.deposits.length; k++) {
+                    AdapterDeposit memory adapterDeposit = chainDeposit.deposits[k];
+                    require(adapterDeposit.percentage > 0, "Percentage must be greater than 0");
+                    require(isProtocol(chainDeposit.chainId, adapterDeposit.adapter), "Adapter not registered");
+                    totalPercentage += adapterDeposit.percentage;
+                }
             }
-        }
-        
+        }        
         require(totalPercentage == 100, "Total percentage must be 100");
     }
     
     /**
-     * @notice Calculates the amount to send to a specific chain
-     * @param chainStrategy Strategy for a specific chain
+     * @notice Calculates the amount to send to a specific chain based on adapter percentages
+     * @param chainDeposit The chain deposit containing adapter allocations
      * @param totalAmount Total amount available for the strategy
-     * @return Amount to send to this chain
+     * @return Amount to send to this chain based on the percentage allocation
      */
-    function calculateChainAmount(Strategy calldata chainStrategy, uint256 totalAmount) internal pure returns (uint256) {
+    function calculateChainAmount(ChainDeposit memory chainDeposit, uint256 totalAmount) internal pure returns (uint256) {
         uint256 chainPercentage = 0;
-        for (uint256 i = 0; i < chainStrategy.deposits.length; i++) {
-            chainPercentage += chainStrategy.deposits[i].percentage;
+        
+        // Sum up all adapter percentages for this chain
+        for (uint256 i = 0; i < chainDeposit.deposits.length; i++) {
+            chainPercentage += chainDeposit.deposits[i].percentage;
         }
         
+        // Calculate the amount based on the total percentage allocated to this chain
         return (totalAmount * chainPercentage) / 100;
     }
 
@@ -254,7 +314,7 @@ contract StrategyManager is Ownable, ReentrancyGuard {
         return false;
     }
 
-    function getVaults(address user) public view returns (ExecutedStrategy[] memory) {
+    function getVaults(address user) public view returns (Strategy[] memory) {
         return vaults[user];
     }
 }

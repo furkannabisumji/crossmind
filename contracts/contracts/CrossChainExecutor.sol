@@ -51,7 +51,7 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
         address receiver,
         string memory action,
         uint256 index,
-        StrategyManager.Deposit[] memory deposits,
+        StrategyManager.ChainDeposit[] memory deposits,
         uint256 amount
     ) external returns (bytes32 messageId) {
         require(address(s_strategyManager) == msg.sender || address(s_adapterRegistry) == msg.sender, "Unauthorised");
@@ -109,7 +109,7 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
         s_lastReceivedMessageId = any2EvmMessage.messageId;
         s_lastReceivedText = abi.decode(any2EvmMessage.data, (string));
 
-        (string memory action,uint256 index, StrategyManager.Deposit[] memory deposits, uint256 amount) = abi.decode(any2EvmMessage.data, (string, uint256, StrategyManager.Deposit[], uint256));
+        (string memory action,uint256 index, StrategyManager.ChainDeposit[] memory deposits, uint256 amount) = abi.decode(any2EvmMessage.data, (string, uint256, StrategyManager.ChainDeposit[], uint256));
         if (keccak256(bytes(action)) == keccak256(bytes("exitStrategyRequest"))) {
             s_adapterRegistry.withdraw(index);
         }

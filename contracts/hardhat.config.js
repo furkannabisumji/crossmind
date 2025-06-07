@@ -10,6 +10,7 @@ const COMPILER_SETTINGS = {
     metadata: {
         bytecodeHash: "none",
     },
+    viaIR: true,
 }
 
 const MAINNET_RPC_URL =
@@ -66,12 +67,17 @@ module.exports = {
         },
         avalanche: {
             url: AVALANCHE_RPC_URL,
-            accounts: PRIVATE_KEY,
+            accounts: [PRIVATE_KEY],
             chainId: 43114,
+        },
+        sepolia: {
+            url: 'https://ethereum-sepolia.rpc.subquery.network/public',
+            accounts: [PRIVATE_KEY],
+            chainId: 11155111,
         },
         amoy: {
             url: AMOY_RPC_URL,
-            accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+            accounts: [PRIVATE_KEY],
             chainId: 80002,
         },
     },
@@ -82,7 +88,7 @@ module.exports = {
             // npx hardhat verify --list-networks
             sepolia: ETHERSCAN_API_KEY,
             mainnet: ETHERSCAN_API_KEY,
-            avalanche: SNOWTRACE_API_KEY,
+            avalanche: ETHERSCAN_API_KEY,
         },
     },
     gasReporter: {
