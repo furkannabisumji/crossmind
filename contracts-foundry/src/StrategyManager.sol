@@ -77,7 +77,6 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     mapping(uint64 => Chain) public chains;
     mapping(address => Strategy[]) public vaults;
 
-    // Events
     event StrategyRegistered(
         address indexed user,
         uint256 amount,
@@ -111,9 +110,13 @@ contract StrategyManager is Ownable, ReentrancyGuard {
 
         validateStrategy(strategy);
 
-        ChainDeposit[] memory calculatedDeposits = new ChainDeposit[](
-            strategy.deposits.length
-        );
+        vaults[msg.sender].push();
+        Strategy storage newStrategy = vaults[msg.sender][
+            vaults[msg.sender].length - 1
+        ];
+        newStrategy.index = index;
+        newStrategy.status = Status.REGISTERED;
+        newStrategy.amount = balance.amount;
 
         for (uint256 i = 0; i < strategy.deposits.length; i++) {
             ChainDeposit memory chainDeposit = strategy.deposits[i];
@@ -122,21 +125,14 @@ contract StrategyManager is Ownable, ReentrancyGuard {
                 balance.amount
             );
 
-            calculatedDeposits[i] = ChainDeposit({
-                chainId: chainDeposit.chainId,
-                amount: chainAmount,
-                deposits: chainDeposit.deposits
-            });
-        }
+            ChainDeposit storage newChainDeposit = newStrategy.deposits.push();
+            newChainDeposit.chainId = chainDeposit.chainId;
+            newChainDeposit.amount = chainAmount;
 
-        vaults[msg.sender].push(
-            Strategy({
-                index: index,
-                status: Status.REGISTERED,
-                amount: balance.amount,
-                deposits: calculatedDeposits
-            })
-        );
+            for (uint256 j = 0; j < chainDeposit.deposits.length; j++) {
+                newChainDeposit.deposits.push(chainDeposit.deposits[j]);
+            }
+        }
 
         emit StrategyRegistered(msg.sender, balance.amount, index);
     }
@@ -162,7 +158,6 @@ contract StrategyManager is Ownable, ReentrancyGuard {
         require(!balance.locked, "Vault is locked");
         require(balance.amount > 0, "No balance");
 
-        // Lock funds inside Vault (Vault will transfer token internally)
         ICrossMindVault(vault).lock(msg.sender, index);
 
         for (uint256 i = 0; i < strategy.deposits.length; i++) {
@@ -176,7 +171,7 @@ contract StrategyManager is Ownable, ReentrancyGuard {
                 chains[strategy.deposits[i].chainId].receiver,
                 "executeStrategy",
                 index,
-                "", // Placeholder for deposits if needed
+                "",
                 chainAmount
             );
         }
@@ -240,7 +235,6 @@ contract StrategyManager is Ownable, ReentrancyGuard {
 
     function triggerRebalance(address user, uint256 index) external {
         require(msg.sender == executor, "Not executor");
-
         emit TriggerRebalance(user, index);
     }
 
@@ -287,11 +281,9 @@ contract StrategyManager is Ownable, ReentrancyGuard {
         uint256 totalAmount
     ) internal pure returns (uint256) {
         uint256 chainPercentage = 0;
-
         for (uint256 i = 0; i < chainDeposit.deposits.length; i++) {
             chainPercentage += chainDeposit.deposits[i].percentage;
         }
-
         return (totalAmount * chainPercentage) / 100;
     }
 
