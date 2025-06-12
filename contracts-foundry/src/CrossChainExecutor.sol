@@ -48,7 +48,7 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
         uint256 amount
     ) external payable returns (bytes32 messageId) {
         // Define an empty array of tokenAmounts — no tokens sent for now
-        Client.EVMTokenAmount;
+        Client.EVMTokenAmount[] memory tokenAmounts;
 
         // Construct the cross-chain message
         Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
