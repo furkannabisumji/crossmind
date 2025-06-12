@@ -1,66 +1,86 @@
-## Foundry
+## 📄 CrossMind — Smart Contracts Documentation
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+CrossMind is a cross-chain decentralized investment vault protocol using Chainlink CCIP and Chainlink Automation to automate cross-chain strategy execution.
 
-Foundry consists of:
+This section documents the smart contracts architecture, coverage, and testing results.
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+---
 
-## Documentation
+### 🗺️ Smart Contracts Architecture
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
+```mermaid
+graph TD
+    A[CrossMindVault.sol] -->|lock/unlock funds| B[StrategyManager.sol]
+    B -->|trigger rebalance| B
+    B -->|execute strategy| C[CrossChainExecutor.sol]
+    C -->|send CCIP message| E[DestinationChain]
+    E -->|execute invest/withdraw| D[AdapterRegistry.sol]
+    D -->|calls| F[IStrategyAdapter → AaveV3Adapter, LidoAdapter, CurveAdapter]
+    C -->|receives CCIP message| C
 ```
 
-### Test
+---
 
-```shell
-$ forge test
+### 📝 Smart Contracts Coverage & Testing Result
+
+| Contract               | Status       | Tests Implemented                                                 | Tests Result   |
+| ---------------------- | ------------ | ----------------------------------------------------------------- | -------------- |
+| CrossMindVault.sol     | ✅ Final     | deposit, withdraw, lock, unlock, removeBalance, balanceOf         | ✅ All passed  |
+| StrategyManager.sol    | ✅ Final     | registerStrategy, confirmStrategy, exitStrategy, triggerRebalance | ✅ All passed  |
+| CrossChainExecutor.sol | ✅ Final     | sendMessageOrToken, ccipReceive                                   | ✅ All passed  |
+| AdapterRegistry.sol    | ✅ Final     | registerAdapter, invest, withdraw                                 | ✅ All passed  |
+| IStrategyAdapter.sol   | ✅ Interface | N/A                                                               | Interface only |
+| AaveV3Adapter.sol      | ✅ Final     | invest, withdraw                                                  | ✅ All passed  |
+
+---
+
+### ⚙️ Testing Summary
+
+- Unit Testing Tool: **Foundry (forge test -vv)**
+- Total Test Suites: ✅ 6
+- Total Tests: ✅ 11
+- All tests passing ✔️
+
+Example command:
+
+```bash
+forge clean
+forge build
+forge test -vv
 ```
 
-### Format
+---
 
-```shell
-$ forge fmt
+### 🔗 Chainlink Integration
+
+| Component             | Tool Used                                     |
+| --------------------- | --------------------------------------------- |
+| Cross-chain messaging | Chainlink CCIP                                |
+| Automated rebalancing | Chainlink Automation                          |
+| Price Feeds           | Chainlink Price Feeds (via AI Agent RPC call) |
+
+**Note:** Price Feeds are consumed off-chain via AI Agent / Backend RPC calls — no need for on-chain `ChainlinkConsumers.sol`.
+
+---
+
+### 🚀 Next Steps
+
+- ✅ Finalize unit tests → Done
+- ✅ Finalize contract code → Done
+- ⬜ Deploy on testnet (Polygon Mumbai / Avalanche Fuji)
+
+---
+
+```markdown
+### 🌐 Deployed Contracts
+
+| Contract               | Address (Testnet) |
+| ---------------------- | ----------------- |
+| CrossMindVault.sol     | ...               |
+| StrategyManager.sol    | ...               |
+| CrossChainExecutor.sol | ...               |
+| AdapterRegistry.sol    | ...               |
+| AaveV3Adapter.sol      | ...               |
 ```
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+---
