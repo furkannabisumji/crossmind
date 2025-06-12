@@ -342,4 +342,8 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     function getVaults(address user) external view returns (Strategy[] memory) {
         return vaults[user];
     }
+
+    function token() external view returns (address) {
+        return ICrossMindVault(vault).token();
+    }
 }
