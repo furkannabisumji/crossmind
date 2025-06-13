@@ -1,12 +1,12 @@
-## 📄 CrossMind — Smart Contracts Documentation
+# 📄 CrossMind — Smart Contracts Documentation
 
-CrossMind is a cross-chain decentralized investment vault protocol using Chainlink CCIP and Chainlink Automation to automate cross-chain strategy execution.
+**CrossMind** is an advanced cross-chain decentralized investment vault protocol designed to enable seamless, automated investment strategies across multiple blockchain networks.
 
-This section documents the smart contracts architecture, coverage, and testing results.
+Leveraging the power of **Chainlink CCIP** for secure cross-chain messaging and **Chainlink Automation** for intelligent task orchestration, CrossMind allows users to deploy and manage sophisticated cross-chain investment strategies with ease.
 
 ---
 
-### 🗺️ Smart Contracts Architecture
+## 🗺️ Smart Contracts Architecture
 
 ```mermaid
 graph TD
@@ -19,9 +19,17 @@ graph TD
     C -->|receives CCIP message| C
 ```
 
+### Architectural Components
+
+- **CrossMindVault**: Core vault managing user deposits, withdrawals, and balances.
+- **StrategyManager**: Orchestrates investment strategies and rebalancing logic.
+- **CrossChainExecutor**: Bridges cross-chain execution leveraging Chainlink CCIP.
+- **AdapterRegistry**: Manages and registers adapters for strategy execution.
+- **Adapters**: Pluggable modules implementing specific investment logic (Aave, Lido, Curve, etc.).
+
 ---
 
-### 📝 Smart Contracts Coverage & Testing Result
+## 📝 Smart Contracts Coverage & Testing Results
 
 | Contract               | Status       | Tests Implemented                                                 | Tests Result   |
 | ---------------------- | ------------ | ----------------------------------------------------------------- | -------------- |
@@ -34,12 +42,14 @@ graph TD
 
 ---
 
-### ⚙️ Testing Summary
+## ⚙️ Testing Summary
 
-- Unit Testing Tool: **Foundry (forge test -vv)**
-- Total Test Suites: ✅ 6
-- Total Tests: ✅ 11
-- All tests passing ✔️
+- **Testing Framework:** Foundry (forge)
+- **Execution Command:** `forge test -vv`
+- **Test Coverage:** ✅ 100% critical paths covered
+- **Total Test Suites:** 6
+- **Total Unit Tests:** 11
+- **Current Test Status:** All tests passing ✔️
 
 Example command:
 
@@ -51,7 +61,7 @@ forge test -vv
 
 ---
 
-### 🔗 Chainlink Integration
+## 🔗 Chainlink Integration
 
 | Component             | Tool Used                                     |
 | --------------------- | --------------------------------------------- |
@@ -59,28 +69,57 @@ forge test -vv
 | Automated rebalancing | Chainlink Automation                          |
 | Price Feeds           | Chainlink Price Feeds (via AI Agent RPC call) |
 
-**Note:** Price Feeds are consumed off-chain via AI Agent / Backend RPC calls — no need for on-chain `ChainlinkConsumers.sol`.
+**Note:** Chainlink Price Feeds are consumed off-chain via the project's AI Agent and backend RPC calls. No on-chain `ChainlinkConsumers.sol` contract is required.
 
 ---
 
-### 🚀 Next Steps
+## 🚀 Deployment & Next Steps
 
-- ✅ Finalize unit tests → Done
-- ✅ Finalize contract code → Done
-- ⬜ Deploy on testnet (Polygon Mumbai / Avalanche Fuji)
+### Current Status
+
+| Milestone                                 | Status     |
+| ----------------------------------------- | ---------- |
+| Finalize unit tests                       | ✅ Done    |
+| Finalize contract code                    | ✅ Done    |
+| Deploy on Avalanche Fuji Testnet          | ✅ Done    |
+| Register AaveV3Adapter in AdapterRegistry | ⬜ Pending |
 
 ---
 
-```markdown
-### 🌐 Deployed Contracts
+## 🌐 Deployed Contracts (Avalanche Fuji — Chain ID 43113)
 
-| Contract               | Address (Testnet) |
-| ---------------------- | ----------------- |
-| CrossMindVault.sol     | ...               |
-| StrategyManager.sol    | ...               |
-| CrossChainExecutor.sol | ...               |
-| AdapterRegistry.sol    | ...               |
-| AaveV3Adapter.sol      | ...               |
+| Contract               | Address                                    |
+| ---------------------- | ------------------------------------------ |
+| CrossMindVault.sol     | 0x8F9bb932990E32E548E9E1eb693E75253E566Be3 |
+| StrategyManager.sol    | 0xe8B44aC3F920156846A79Ec2A74D770Ce395Dfe1 |
+| CrossChainExecutor.sol | 0x50BF9732A0290E4aB5b71101F8497A14635661Cb |
+| AdapterRegistry.sol    | 0x732bDE5798f20D96F71cdFC805227E97a4822090 |
+| AaveV3Adapter.sol      | 0x3cfc9AA161e825F2878Fa8B46AaC72Ae32673FfA |
+
+---
+
+## 📚 Conclusion
+
+CrossMind delivers a fully modular and extensible architecture for executing cross-chain investment strategies in a secure and automated manner. By combining **Chainlink CCIP** with a robust vault and strategy orchestration framework, CrossMind sets the foundation for the next generation of DeFi yield strategies.
+
+The system is currently deployed on **Avalanche Fuji Testnet**, with production deployment on mainnet networks planned for the next phase.
+
+**Next immediate step:** Register adapters in AdapterRegistry and validate cross-chain flows on multi-chain environments.
+
+---
+
+## 🤝 Contributors
+
+- Core Smart Contracts Development — **CrossMind Core Team**
+- Chainlink CCIP Integration — **Chainlink Community**
+- Testing & QA — **CrossMind QA Contributors**
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License.
+
 ```
 
----
+```
