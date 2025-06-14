@@ -24,14 +24,16 @@ contract RegisterStrategyScript is Script {
         );
 
         // ----------- Adapter Deposits -----------
-        StrategyManager.AdapterDeposit[] memory adapterDeposits = new StrategyManager.AdapterDeposit[](1);
+        StrategyManager.AdapterDeposit[]
+            memory adapterDeposits = new StrategyManager.AdapterDeposit[](1);
         adapterDeposits[0] = StrategyManager.AdapterDeposit({
             adapter: adapterAddress,
             percentage: 100
         });
 
         // ----------- Chain Deposits -----------
-        StrategyManager.ChainDeposit[] memory chainDeposits = new StrategyManager.ChainDeposit[](1);
+        StrategyManager.ChainDeposit[]
+            memory chainDeposits = new StrategyManager.ChainDeposit[](1);
         chainDeposits[0] = StrategyManager.ChainDeposit({
             chainId: chainId,
             amount: amount,

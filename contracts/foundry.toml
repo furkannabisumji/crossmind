@@ -1,10 +1,17 @@
 [profile.default]
 src = "src"
 out = "out"
-libs = ["node_modules", "lib"]
+libs = ["lib"]
 remappings = [
-  "forge-std/=lib/forge-std/src/"
+    "forge-std/=lib/forge-std/src/",
+    "@openzeppelin/=lib/openzeppelin-contracts/contracts/",
+    "@chainlink/contracts/=lib/chainlink/contracts/",
+    "@chainlink/contracts-ccip/=lib/chainlink-ccip/contracts/"
 ]
+solc_version = "0.8.28"
+optimizer = true
+optimizer_runs = 200
 
 [rpc_endpoints]
 fuji = "https://api.avax-test.network/ext/bc/C/rpc"
+sepolia = "https://sepolia.infura.io/v3/e909ef7e3aaa4a2cbb627fbee4ffd000"

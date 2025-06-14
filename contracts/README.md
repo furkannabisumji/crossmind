@@ -19,8 +19,6 @@ graph TD
     C -->|receives CCIP message| C
 ```
 
-````
-
 ### Architectural Components
 
 - **CrossMindVault**: Core vault managing user deposits, withdrawals, and balances.
@@ -105,11 +103,49 @@ forge test -vv
 
 ---
 
+## 📍 Deployment on Sepolia Testnet (Chain ID 11155111)
+
+### ✅ Commands Used
+
+```bash
+# Register Adapter
+forge script script/RegisterAdapter.s.sol \
+  --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
+  --broadcast \
+  -- --private-key $PRIVATE_KEY
+
+# Register Strategy
+forge script script/RegisterStrategy.s.sol \
+  --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
+  --broadcast \
+  -- --private-key $PRIVATE_KEY
+
+# Confirm Strategy
+forge script script/ConfirmStrategy.s.sol \
+  --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
+  --broadcast \
+  -- --private-key $PRIVATE_KEY
+```
+
+### 📦 Deployment Results on Sepolia
+
+| Component           | Result / Address                             |
+| ------------------- | -------------------------------------------- |
+| Adapter Address     | `0x3cfc9AA161e825F2878Fa8B46AaC72Ae32673FfA` |
+| StrategyManager     | `0xE8B44aC3F920156846A79Ec2A74D770Ce395Dfe1` |
+| Strategy Registered | Yes (ChainSelector `16015286601757825753`)   |
+| Strategy Confirmed  | Yes, index `0`                               |
+| Vault Contract      | `0x8F9bb932990E32E548E9E1eb693E75253E566Be3` |
+
+⛔ **Note**: Deposit on Sepolia reverted — possibly due to strategy not holding tokens or logic not complete yet.
+
+---
+
 ## 📚 Conclusion
 
 CrossMind delivers a fully modular and extensible architecture for executing cross-chain investment strategies in a secure and automated manner. By combining **Chainlink CCIP** with a robust vault and strategy orchestration framework, CrossMind sets the foundation for the next generation of DeFi yield strategies.
 
-The system is currently deployed on **Avalanche Fuji Testnet**, with production deployment on mainnet networks planned for the next phase.
+The system is currently deployed on **Avalanche Fuji Testnet** and **Sepolia Testnet**, with production deployment on mainnet networks planned for the next phase.
 
 **Next immediate step:** Finalize AdapterRegistry extension to support `registerAdapter()` and `getAdapter()`, register adapters accordingly, and validate full cross-chain flow.
 
@@ -130,4 +166,3 @@ This project is licensed under the MIT License.
 ```
 
 ```
-````
