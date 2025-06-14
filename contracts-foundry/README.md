@@ -19,26 +19,28 @@ graph TD
     C -->|receives CCIP message| C
 ```
 
+````
+
 ### Architectural Components
 
 - **CrossMindVault**: Core vault managing user deposits, withdrawals, and balances.
 - **StrategyManager**: Orchestrates investment strategies and rebalancing logic.
 - **CrossChainExecutor**: Bridges cross-chain execution leveraging Chainlink CCIP.
-- **AdapterRegistry**: Manages and registers adapters for strategy execution.
+- **AdapterRegistry**: Currently implements `invest` and `withdraw`; planned extension to include full Adapter registry functionality.
 - **Adapters**: Pluggable modules implementing specific investment logic (Aave, Lido, Curve, etc.).
 
 ---
 
 ## 📝 Smart Contracts Coverage & Testing Results
 
-| Contract               | Status       | Tests Implemented                                                 | Tests Result   |
-| ---------------------- | ------------ | ----------------------------------------------------------------- | -------------- |
-| CrossMindVault.sol     | ✅ Final     | deposit, withdraw, lock, unlock, removeBalance, balanceOf         | ✅ All passed  |
-| StrategyManager.sol    | ✅ Final     | registerStrategy, confirmStrategy, exitStrategy, triggerRebalance | ✅ All passed  |
-| CrossChainExecutor.sol | ✅ Final     | sendMessageOrToken, ccipReceive                                   | ✅ All passed  |
-| AdapterRegistry.sol    | ✅ Final     | registerAdapter, invest, withdraw                                 | ✅ All passed  |
-| IStrategyAdapter.sol   | ✅ Interface | N/A                                                               | Interface only |
-| AaveV3Adapter.sol      | ✅ Final     | invest, withdraw                                                  | ✅ All passed  |
+| Contract               | Status        | Tests Implemented                                                 | Tests Result   |
+| ---------------------- | ------------- | ----------------------------------------------------------------- | -------------- |
+| CrossMindVault.sol     | ✅ Final      | deposit, withdraw, lock, unlock, removeBalance, balanceOf         | ✅ All passed  |
+| StrategyManager.sol    | ✅ Final      | registerStrategy, confirmStrategy, exitStrategy, triggerRebalance | ✅ All passed  |
+| CrossChainExecutor.sol | ✅ Final      | sendMessageOrToken, ccipReceive                                   | ✅ All passed  |
+| AdapterRegistry.sol    | ✅ Final (v1) | invest, withdraw (registerAdapter planned for next version)       | ✅ All passed  |
+| IStrategyAdapter.sol   | ✅ Interface  | N/A                                                               | Interface only |
+| AaveV3Adapter.sol      | ✅ Final      | invest, withdraw                                                  | ✅ All passed  |
 
 ---
 
@@ -50,6 +52,7 @@ graph TD
 - **Total Test Suites:** 6
 - **Total Unit Tests:** 11
 - **Current Test Status:** All tests passing ✔️
+- **Manual Test:** `RegisterAdapter.s.sol` executed on Fuji Testnet — verified that current `AdapterRegistry` implementation does not yet expose `registerAdapter()` function; confirmed planned extension required.
 
 Example command:
 
@@ -77,12 +80,16 @@ forge test -vv
 
 ### Current Status
 
-| Milestone                                 | Status     |
-| ----------------------------------------- | ---------- |
-| Finalize unit tests                       | ✅ Done    |
-| Finalize contract code                    | ✅ Done    |
-| Deploy on Avalanche Fuji Testnet          | ✅ Done    |
-| Register AaveV3Adapter in AdapterRegistry | ⬜ Pending |
+| Milestone                                                                  | Status     |
+| -------------------------------------------------------------------------- | ---------- |
+| Finalize unit tests                                                        | ✅ Done    |
+| Finalize contract code                                                     | ✅ Done    |
+| Deploy on Avalanche Fuji Testnet                                           | ✅ Done    |
+| Implement RegisterAdapter.s.sol script                                     | ✅ Done    |
+| Verify AdapterRegistry behavior with RegisterAdapter                       | ✅ Done    |
+| Implement full AdapterRegistry with `registerAdapter()` and `getAdapter()` | ⬜ Planned |
+| Register adapters on AdapterRegistry once implemented                      | ⬜ Pending |
+| Test cross-chain flow with registered adapters                             | ⬜ Pending |
 
 ---
 
@@ -104,7 +111,7 @@ CrossMind delivers a fully modular and extensible architecture for executing cro
 
 The system is currently deployed on **Avalanche Fuji Testnet**, with production deployment on mainnet networks planned for the next phase.
 
-**Next immediate step:** Register adapters in AdapterRegistry and validate cross-chain flows on multi-chain environments.
+**Next immediate step:** Finalize AdapterRegistry extension to support `registerAdapter()` and `getAdapter()`, register adapters accordingly, and validate full cross-chain flow.
 
 ---
 
@@ -123,3 +130,4 @@ This project is licensed under the MIT License.
 ```
 
 ```
+````

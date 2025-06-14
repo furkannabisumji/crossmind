@@ -7,3 +7,6 @@ remappings = [
   "@chainlink/contracts/=lib/chainlink/contracts/",
   "forge-std/=lib/forge-std/src/"
 ]
+
+[rpc_endpoints]
+fuji = "https://api.avax-test.network/ext/bc/C/rpc"
