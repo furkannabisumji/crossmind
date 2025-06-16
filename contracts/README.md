@@ -6,7 +6,7 @@ Leveraging the power of **Chainlink CCIP** for secure cross-chain messaging and 
 
 ---
 
-## 🗺️ Smart Contracts Architecture
+## 🗘️ Smart Contracts Architecture
 
 ```mermaid
 graph TD
@@ -55,6 +55,8 @@ graph TD
 Example command:
 
 ```bash
+forge install & yarn install
+forge install foundry-rs/forge-std
 forge clean
 forge build
 forge test -vv
@@ -85,9 +87,9 @@ forge test -vv
 | Deploy on Avalanche Fuji Testnet                                           | ✅ Done    |
 | Implement RegisterAdapter.s.sol script                                     | ✅ Done    |
 | Verify AdapterRegistry behavior with RegisterAdapter                       | ✅ Done    |
-| Implement full AdapterRegistry with `registerAdapter()` and `getAdapter()` | ⬜ Planned |
-| Register adapters on AdapterRegistry once implemented                      | ⬜ Pending |
-| Test cross-chain flow with registered adapters                             | ⬜ Pending |
+| Implement full AdapterRegistry with `registerAdapter()` and `getAdapter()` | ⬛ Planned |
+| Register adapters on AdapterRegistry once implemented                      | ⬛ Pending |
+| Test cross-chain flow with registered adapters                             | ⬛ Pending |
 
 ---
 
@@ -108,6 +110,14 @@ forge test -vv
 ### ✅ Commands Used
 
 ```bash
+# Deploy & Verify All
+forge script script/DeployCrossMind.s.sol:DeployCrossMindScript \
+  --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
+  --broadcast \
+  --verify \
+  --chain-id 11155111 \
+  --etherscan-api-key $ETHERSCAN_API_KEY
+
 # Register Adapter
 forge script script/RegisterAdapter.s.sol \
   --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
@@ -129,15 +139,23 @@ forge script script/ConfirmStrategy.s.sol \
 
 ### 📦 Deployment Results on Sepolia
 
-| Component           | Result / Address                             |
-| ------------------- | -------------------------------------------- |
-| Adapter Address     | `0x3cfc9AA161e825F2878Fa8B46AaC72Ae32673FfA` |
-| StrategyManager     | `0xE8B44aC3F920156846A79Ec2A74D770Ce395Dfe1` |
-| Strategy Registered | Yes (ChainSelector `16015286601757825753`)   |
-| Strategy Confirmed  | Yes, index `0`                               |
-| Vault Contract      | `0x8F9bb932990E32E548E9E1eb693E75253E566Be3` |
+| Contract               | Address                                    | Verified Status |
+| ---------------------- | ------------------------------------------ | --------------- |
+| AdapterRegistry.sol    | 0xD082cfD42ecF22Fb704AE3516CE64644eaEA9658 | ✅ Verified     |
+| CrossChainExecutor.sol | 0x5B3124d8EA144151368252A50D1f944AbE15E3EE | ✅ Verified     |
+| CrossMindVault.sol     | 0xD106F14750695E56E78F039da3eaF7136a86dbFa | ✅ Verified     |
+| AaveV3Adapter.sol      | 0x078E218b072512C1aBEA97bEa2593e6F96688f9A | ✅ Verified     |
+| StrategyManager.sol    | 0x92C1EcB1019dE7e49F582CB3120961C08Db468f3 | ✅ Verified     |
 
-⛔ **Note**: Deposit on Sepolia reverted — possibly due to strategy not holding tokens or logic not complete yet.
+### 📋 Strategy Status
+
+| Detail              | Value                                      |
+| ------------------- | ------------------------------------------ |
+| Strategy Registered | Yes (ChainSelector `16015286601757825753`) |
+| Strategy Confirmed  | Yes, index `0`                             |
+| Sepolia Vault Addr  | 0xD106F14750695E56E78F039da3eaF7136a86dbFa |
+
+⛘️ **Note**: Deposit on Sepolia reverted — possibly due to strategy not holding tokens or logic not complete yet.
 
 ---
 
@@ -162,7 +180,3 @@ The system is currently deployed on **Avalanche Fuji Testnet** and **Sepolia Tes
 ## 📝 License
 
 This project is licensed under the MIT License.
-
-```
-
-```
