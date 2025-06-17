@@ -97,11 +97,70 @@ forge test -vv
 
 | Contract               | Address                                    |
 | ---------------------- | ------------------------------------------ |
-| CrossMindVault.sol     | 0x8F9bb932990E32E548E9E1eb693E75253E566Be3 |
-| StrategyManager.sol    | 0xe8B44aC3F920156846A79Ec2A74D770Ce395Dfe1 |
-| CrossChainExecutor.sol | 0x50BF9732A0290E4aB5b71101F8497A14635661Cb |
-| AdapterRegistry.sol    | 0x732bDE5798f20D96F71cdFC805227E97a4822090 |
-| AaveV3Adapter.sol      | 0x3cfc9AA161e825F2878Fa8B46AaC72Ae32673FfA |
+| CrossMindVault.sol     | 0x0b030C4fD5a31016D753102a6E939019E9119bb2 |
+| StrategyManager.sol    | 0x8B162A960CA4F45e219db23b90132bF6B0e56271 |
+| CrossChainExecutor.sol | 0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b |
+| AdapterRegistry.sol    | 0x813F86D4Ecf3eFd328072D684f558c3B78a1b841 |
+| AaveV3Adapter.sol      | 0x66118D36C7eeeD2134D6De444b60d2DD2DB310FD |
+|                        |
+
+forge verify-contract \
+ 0x0b030C4fD5a31016D753102a6E939019E9119bb2 \
+ src/CrossMindVault.sol:CrossMindVault \
+ --verifier custom \
+ --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan \
+ --etherscan-api-key "" \
+ --chain-id 43113 \
+ --num-of-optimizations 200 \
+ --compiler-version v0.8.28+commit.9c3b4e9f
+
+Start verifying contract `0x0b030C4fD5a31016D753102a6E939019E9119bb2` deployed on fuji
+Compiler version: v0.8.28+commit.9c3b4e9f
+Optimizations: 200
+
+Submitting verification for [src/CrossMindVault.sol:CrossMindVault] 0x0b030C4fD5a31016D753102a6E939019E9119bb2.
+Submitted contract for verification:
+Response: `OK`
+GUID: `ce6fe137-5c22-564f-963a-81fc02ae8a43`
+URL: https://api.routescan.io/v2/network/testnet/evm/43113/address/0x0b030c4fd5a31016d753102a6e939019e9119bb2
+➜ contracts git:(main) ✗ forge verify-contract \
+ 0x0b030C4fD5a31016D753102a6E939019E9119bb2 \
+ src/CrossMindVault.sol:CrossMindVault \
+ --verifier custom \
+ --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api \
+ --etherscan-api-key "" \
+ --chain-id 43113 \
+ --num-of-optimizations 200 \
+ --compiler-version v0.8.28+commit.9c3b4e9f \
+ --watch
+
+Start verifying contract `0x0b030C4fD5a31016D753102a6E939019E9119bb2` deployed on fuji
+Compiler version: v0.8.28+commit.9c3b4e9f
+Optimizations: 200
+
+Contract [src/CrossMindVault.sol:CrossMindVault] "0x0b030C4fD5a31016D753102a6E939019E9119bb2" is already verified. Skipping verification.
+
+---
+
+## ✅ Verified Contracts — Avalanche Fuji Testnet (Chain ID 43113)ß
+
+| Contract Name      | Address                                      | Verify Command              | Verification Status | Link                                                                                                 |
+| ------------------ | -------------------------------------------- | --------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
+| CrossMindVault     | `0x0b030C4fD5a31016D753102a6E939019E9119bb2` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x0b030c4fd5a31016d753102a6e939019e9119bb2) |
+| CrossChainExecutor | `0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0xe8ecaced7b444f3f1cf5e324b9657e4fbdb8dd7b) |
+| StrategyManager    | `0x8B162A960CA4F45e219db23b90132bF6B0e56271` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x8b162a960ca4f45e219db23b90132bf6b0e56271) |
+| AdapterRegistry    | `0x813F86D4Ecf3eFd328072D684f558c3B78a1b841` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x813f86d4ecf3efd328072d684f558c3b78a1b841) |
+| AaveV3Adapter      | `0x66118D36C7eeeD2134D6De444b60d2DD2DB310FD` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x66118D36C7eeeD2134D6De444b60d2DD2DB310FD) |
+
+---
+
+## 🔗 Verification Strategy
+
+1. Use `forge script` to deploy and record addresses.
+2. Use `forge verify-contract` with:
+   - `--verifier custom`
+   - `--verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api`
+   - Compiler version & optimizer settings must match build.
 
 ---
 
