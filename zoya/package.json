@@ -29,6 +29,7 @@
   "dependencies": {
     "@elizaos/cli": "latest",
     "@elizaos/core": "latest",
+    "@elizaos/plugin-bedrock": "^1.0.1",
     "@elizaos/plugin-bootstrap": "latest",
     "@elizaos/plugin-cronoszkevm": "^0.25.6-alpha.1",
     "@elizaos/plugin-evm": "^1.0.12",

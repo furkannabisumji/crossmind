@@ -5,10 +5,8 @@ import {
   type Project,
   type ProjectAgent,
 } from '@elizaos/core';
-import starterPlugin from './plugin.ts';
-import getBalanceAction from './actions/getBalance';
-import getInvestmentOptionsAction from './actions/getInvestmentOptions';
-import registerStrategyAction from './actions/registerStrategy';
+import { bedrockPlugin } from '@elizaos/plugin-bedrock';
+import crossmindPlugin from './plugin';
 
 /**
  * Represents the default character (Eliza) with her specific attributes and behaviors.
@@ -20,12 +18,6 @@ export const character: Character = {
   name: 'Zoya',
   plugins: [
     '@elizaos/plugin-sql',
-    ...(process.env.ANTHROPIC_API_KEY ? ['@elizaos/plugin-anthropic'] : []),
-    ...(process.env.OPENAI_API_KEY ? ['@elizaos/plugin-openai'] : []),
-    ...(!process.env.OPENAI_API_KEY ? ['@elizaos/plugin-local-ai'] : []),
-    ...(process.env.DISCORD_API_TOKEN ? ['@elizaos/plugin-discord'] : []),
-    ...(process.env.TWITTER_USERNAME ? ['@elizaos/plugin-twitter'] : []),
-    ...(process.env.TELEGRAM_BOT_TOKEN ? ['@elizaos/plugin-telegram'] : []),
     ...(!process.env.IGNORE_BOOTSTRAP ? ['@elizaos/plugin-bootstrap'] : []),
   ],
   settings: {
@@ -200,7 +192,7 @@ const initCharacter = ({ runtime }: { runtime: IAgentRuntime }) => {
 export const projectAgent: ProjectAgent = {
   character,
   init: async (runtime: IAgentRuntime) => await initCharacter({ runtime }),
-  plugins: [starterPlugin]
+  plugins: [bedrockPlugin, crossmindPlugin]
 };
 const project: Project = {
   agents: [projectAgent],
