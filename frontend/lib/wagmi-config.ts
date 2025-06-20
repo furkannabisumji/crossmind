@@ -1,32 +1,33 @@
-import { http } from 'wagmi';
-import { mainnet, polygon, optimism, arbitrum, base, zora } from 'wagmi/chains';
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+'use client';
 
-// Define supported chains
-const chains = [
-  mainnet,
-  polygon,
-  optimism,
-  arbitrum,
-  base,
-  zora
-] as const;
+import { http, createConfig } from "wagmi";
+import { avalancheFuji } from "wagmi/chains";
+import { getDefaultWallets } from "@rainbow-me/rainbowkit";
+import { Chain } from "wagmi/chains";
+
+// Only using Avalanche Fuji testnet
+const chains = [avalancheFuji] as [Chain, ...Chain[]];
 
 // Get WalletConnect project ID from environment variables
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID';
+const projectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "DEFAULT_PROJECT_ID";
 
-// Create wagmi config with RainbowKit integration
-export const config = getDefaultConfig({
-  appName: 'CrossMind Portfolio Dashboard',
-  projectId,
+// Configure RainbowKit wallets
+const { connectors } = getDefaultWallets({
+  appName: "CrossMind Portfolio Dashboard",
+  projectId
+});
+
+// Create transport for Avalanche Fuji testnet
+const transports = {
+  // Avalanche Fuji testnet chain ID: 43113
+  [avalancheFuji.id]: http(),
+};
+
+// Create the Wagmi config
+export const config = createConfig({
   chains,
-  transports: {
-    [mainnet.id]: http(),
-    [polygon.id]: http(),
-    [optimism.id]: http(),
-    [arbitrum.id]: http(),
-    [base.id]: http(),
-    [zora.id]: http(),
-  },
-  ssr: true, // Enable server-side rendering support
+  transports,
+  ssr: true,
+  connectors,
 });

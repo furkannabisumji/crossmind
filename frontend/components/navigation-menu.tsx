@@ -1,20 +1,20 @@
 "use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { useWallet } from '@/components/wallet-provider';
-import { 
-  Brain, 
-  LayoutDashboard, 
-  CreditCard, 
-  BarChart3, 
-  Settings, 
-  Menu, 
-  X 
-} from 'lucide-react';
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useWallet } from "@/components/wallet-provider";
+import {
+  Brain,
+  LayoutDashboard,
+  CreditCard,
+  BarChart3,
+  Settings,
+  Menu,
+  X,
+} from "lucide-react";
 
 export function NavigationMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,11 +22,18 @@ export function NavigationMenu() {
   const { isConnected, account, connect, disconnect } = useWallet();
 
   const navItems = [
-    { href: '/', label: 'Home', icon: <Brain className="h-5 w-5" /> },
-    { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
-    { href: '/dashboard/deposit', label: 'Deposit', icon: <CreditCard className="h-5 w-5" /> },
-    { href: '/dashboard/strategies', label: 'Strategies', icon: <BarChart3 className="h-5 w-5" /> },
-    { href: '/dashboard/settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
+    { href: "/", label: "Home", icon: <Brain className="h-5 w-5" /> },
+    {
+      href: "/dashboard",
+      label: "Dashboard",
+      icon: <LayoutDashboard className="h-5 w-5" />,
+    },
+
+    {
+      href: "/dashboard/settings",
+      label: "Settings",
+      icon: <Settings className="h-5 w-5" />,
+    },
   ];
 
   return (
@@ -35,7 +42,9 @@ export function NavigationMenu() {
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
             <Brain className="h-8 w-8 text-primary" />
-            <span className="hidden text-xl font-bold sm:inline-block">CrossMind</span>
+            <span className="hidden text-xl font-bold sm:inline-block">
+              CrossMind
+            </span>
           </Link>
         </div>
 
@@ -46,7 +55,9 @@ export function NavigationMenu() {
               key={item.href}
               href={item.href}
               className={`flex items-center gap-1 text-sm font-medium transition-colors hover:text-primary ${
-                pathname === item.href ? 'text-primary' : 'text-muted-foreground'
+                pathname === item.href
+                  ? "text-primary"
+                  : "text-muted-foreground"
               }`}
             >
               {item.icon}
@@ -57,7 +68,7 @@ export function NavigationMenu() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          
+
           {isConnected ? (
             <Button
               variant="outline"
@@ -65,7 +76,8 @@ export function NavigationMenu() {
               onClick={disconnect}
               className="hidden sm:flex"
             >
-              {account?.substring(0, 6)}...{account?.substring(account.length - 4)}
+              {account?.substring(0, 6)}...
+              {account?.substring(account.length - 4)}
             </Button>
           ) : (
             <Button size="sm" onClick={connect} className="hidden sm:flex">
@@ -94,7 +106,9 @@ export function NavigationMenu() {
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent ${
-                  pathname === item.href ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
+                  pathname === item.href
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground"
                 }`}
                 onClick={() => setIsOpen(false)}
               >
