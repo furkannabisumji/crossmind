@@ -1,0 +1,9 @@
+PRIVATE_KEY=
+
+# ✅ CCIP Router address on Fuji
+CCIP_ROUTER=
+
+# ✅ AdapterRegistry deployed address (من الخطوة السابقة)
+ADAPTER_REGISTRY=
+
+ADAPTER_REGISTRY=
