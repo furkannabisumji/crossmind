@@ -24,6 +24,26 @@ export const CONTRACT_ADDRESSES = {
     [base.id]: '0x1234567890123456789012345678901234567891',    // Replace with actual address
     [zora.id]: '0x2345678901234567890123456789012345678912',    // Replace with actual address
   },
+
+  // CrossMindVault contract - manages user deposits
+  CrossMindVault: {
+    [mainnet.id]: '0xA234567890123456789012345678901234567890', // Replace with actual address
+    [polygon.id]: '0xB345678901234567890123456789012345678901', // Replace with actual address
+    [optimism.id]: '0xC456789012345678901234567890123456789012', // Replace with actual address
+    [arbitrum.id]: '0xD567890123456789012345678901234567890123', // Replace with actual address
+    [base.id]: '0xE678901234567890123456789012345678901234',    // Replace with actual address
+    [zora.id]: '0xF789012345678901234567890123456789012345',    // Replace with actual address
+  },
+
+  // StrategyManager contract - executes multi-chain investment strategies
+  StrategyManager: {
+    [mainnet.id]: '0xAA34567890123456789012345678901234567890', // Replace with actual address
+    [polygon.id]: '0xBB45678901234567890123456789012345678901', // Replace with actual address
+    [optimism.id]: '0xCC56789012345678901234567890123456789012', // Replace with actual address
+    [arbitrum.id]: '0xDD67890123456789012345678901234567890123', // Replace with actual address
+    [base.id]: '0xEE78901234567890123456789012345678901234',    // Replace with actual address
+    [zora.id]: '0xFF89012345678901234567890123456789012345',    // Replace with actual address
+  },
 } as const;
 
 /**
