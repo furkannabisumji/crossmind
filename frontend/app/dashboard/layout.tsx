@@ -6,21 +6,23 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Sheet, 
-  SheetContent, 
+import {
+  Sheet,
+  SheetContent,
   SheetTrigger,
   SheetHeader,
-  SheetTitle 
+  SheetTitle,
 } from "@/components/ui/sheet";
-import { 
-  LayoutDashboard, 
-  CreditCard, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  CreditCard,
+  BarChart3,
   Settings,
   ChevronRight,
   ChevronLeft,
-  Menu
+  Menu,
+  LineChart,
+  Brain,
 } from "lucide-react";
 
 const sidebarNavItems = [
@@ -35,9 +37,9 @@ const sidebarNavItems = [
     icon: <CreditCard className="h-5 w-5" />,
   },
   {
-    title: "Strategies",
-    href: "/dashboard/strategies",
-    icon: <BarChart3 className="h-5 w-5" />,
+    title: "Strategy",
+    href: "/dashboard/strategy",
+    icon: <Brain className="h-5 w-5" />,
   },
   {
     title: "Settings",

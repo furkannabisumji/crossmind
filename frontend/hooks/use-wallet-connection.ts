@@ -2,6 +2,7 @@ import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useState, useEffect, useCallback } from 'react';
 import { formatEther } from 'viem';
+import { config } from '@/lib/wagmi-config';
 
 /**
  * Custom hook for wallet connection functionality
@@ -9,14 +10,11 @@ import { formatEther } from 'viem';
  */
 export function useWalletConnection() {
   const { address, isConnected, status } = useAccount();
-  const { connectors, connect } = useConnect();
-  const { disconnect } = useDisconnect();
+  const { connectors, connectAsync: connect } = useConnect();
+  const { disconnectAsync: disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
   const { data: balanceData } = useBalance({
     address,
-    query: {
-      enabled: Boolean(address),
-    },
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -38,11 +36,6 @@ export function useWalletConnection() {
     try {
       setIsLoading(true);
       setError(null);
-
-      // Track connection attempt (for analytics in a real app)
-      if (typeof window !== "undefined") {
-        // analyticsService.trackEvent('wallet_connect_attempt');
-      }
 
       // Open RainbowKit modal
       if (openConnectModal) {
