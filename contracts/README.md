@@ -97,7 +97,7 @@ forge test -vv
 
 | Contract               | Address                                    |
 | ---------------------- | ------------------------------------------ |
-| CrossMindVault.sol     | 0x0b030C4fD5a31016D753102a6E939019E9119bb2 |
+| CrossMindVault.sol     | 0x0AfBAcDE516eE2599C3d6E233c804ca692245392 |
 | StrategyManager.sol    | 0x8B162A960CA4F45e219db23b90132bF6B0e56271 |
 | CrossChainExecutor.sol | 0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b |
 | AdapterRegistry.sol    | 0x813F86D4Ecf3eFd328072D684f558c3B78a1b841 |
@@ -146,7 +146,7 @@ Contract [src/CrossMindVault.sol:CrossMindVault] "0x0b030C4fD5a31016D753102a6E93
 
 | Contract Name      | Address                                      | Verify Command              | Verification Status | Link                                                                                                 |
 | ------------------ | -------------------------------------------- | --------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
-| CrossMindVault     | `0x0b030C4fD5a31016D753102a6E939019E9119bb2` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x0b030c4fd5a31016d753102a6e939019e9119bb2) |
+| CrossMindVault     | `0x0AfBAcDE516eE2599C3d6E233c804ca692245392` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x0AfBAcDE516eE2599C3d6E233c804ca692245392) |
 | CrossChainExecutor | `0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0xe8ecaced7b444f3f1cf5e324b9657e4fbdb8dd7b) |
 | StrategyManager    | `0x8B162A960CA4F45e219db23b90132bF6B0e56271` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x8b162a960ca4f45e219db23b90132bf6b0e56271) |
 | AdapterRegistry    | `0x813F86D4Ecf3eFd328072D684f558c3B78a1b841` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x813f86d4ecf3efd328072d684f558c3b78a1b841) |

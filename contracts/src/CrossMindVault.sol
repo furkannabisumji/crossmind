@@ -5,8 +5,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract CrossMindVault is Ownable {
-    address public token;
+    address public token; // ✅ USDC token address to be passed in constructor
     address public strategyManager;
+
     enum Risk {
         LOW,
         MEDIUM,
@@ -34,7 +35,8 @@ contract CrossMindVault is Ownable {
             _strategyManager != address(0),
             "StrategyManager address cannot be zero"
         );
-        token = _token;
+
+        token = _token; // 👈 هنا لازم تمرر عنوان USDC الصحيح
         strategyManager = _strategyManager;
     }
 
@@ -87,7 +89,6 @@ contract CrossMindVault is Ownable {
 
     function unlock(address user, uint256 _index) external onlyStrategyManager {
         balances[user][_index].locked = false;
-
         emit Unlock(user);
     }
 

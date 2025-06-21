@@ -1,9 +1,31 @@
+##############################################
+# 🔐 PRIVATE KEY
+##############################################
 PRIVATE_KEY=
 
-# ✅ CCIP Router address on Fuji
+##############################################
+# 🔗 Chainlink CCIP Config (Fuji Testnet)
+##############################################
+
+# ✅ Chainlink CCIP Router on Avalanche Fuji
 CCIP_ROUTER=
 
-# ✅ AdapterRegistry deployed address (من الخطوة السابقة)
+# ✅ AdapterRegistry contract (already deployed)
 ADAPTER_REGISTRY=
 
-ADAPTER_REGISTRY=
+##############################################
+# 🌐 RPC & APIs
+##############################################
+
+# ✅ Infura Project ID (Sepolia)
+INFURA_KEY=
+
+##############################################
+# 🧱 Contract Addresses
+##############################################
+
+# ✅ CrossChainExecutor deployed on Fuji
+CROSS_CHAIN_EXECUTOR=
+
+# ✅ SimpleReceiver deployed on Sepolia
+DESTINATION_RECEIVER=
