@@ -6,30 +6,15 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/page": [
-      "static/chunks/runtime.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/page.js"
-    ],
     "/dashboard/layout": [
       "static/chunks/runtime.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/layout.js"
     ],
-    "/dashboard/page": [
-      "static/chunks/runtime.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/page.js"
-    ],
     "/dashboard/strategy/page": [
       "static/chunks/runtime.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/strategy/page.js"
-    ],
-    "/dashboard/settings/page": [
-      "static/chunks/runtime.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/settings/page.js"
     ],
     "/dashboard/deposit/page": [
       "static/chunks/runtime.js",

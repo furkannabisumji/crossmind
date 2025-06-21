@@ -63,9 +63,7 @@ export default function StrategyPage() {
   const [currentStep, setCurrentStep] = useState<
     "deposit" | "generate" | "approve" | "execute"
   >("deposit");
-  const [riskLevel, setRiskLevel] = useState<"Low" | "Medium" | "High">(
-    "Medium"
-  );
+  const [riskLevel, setRiskLevel] = useState<"Low" | "Medium" | "High" | "">("");
   const [selectedToken, setSelectedToken] = useState<string>("usdc");
   const [userInput, setUserInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -173,12 +171,17 @@ export default function StrategyPage() {
       alert("Please deposit funds first");
       return;
     }
+    
+    if (!riskLevel) {
+      alert("Please select a risk level");
+      return;
+    }
 
     try {
       // Use the hook's generateStrategy method with our parameters
       await generateStrategy(
         parseFloat(depositAmount),
-        riskLevel
+        riskLevel as "Low" | "Medium" | "High"
         // Optionally pass preferred chains
         // chainOptions.map(chain => chain.id)
       );
@@ -444,7 +447,7 @@ export default function StrategyPage() {
           <Button
             onClick={handleDeposit}
             disabled={
-              !depositAmount || parseFloat(depositAmount) <= 0 || isDepositing
+              !depositAmount || parseFloat(depositAmount) <= 0 || !riskLevel || isDepositing
             }
             className="w-full mt-4"
           >
