@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useWallet } from "@/components/wallet-provider";
+import SocketIOManager from "@/lib/socketio-manager";
+import { MessageBroadcastData } from "@/lib/socketio-manager";
 
 // Types for strategy generation
 export type ChainAllocation = {
@@ -33,7 +35,10 @@ export type Message = {
 };
 
 interface MessageRequest {
-  content: string;
+  message: string;
+  agentId: string;
+  roomId: string;
+  userId?: string;
   contextData?: Record<string, any>;
 }
 
@@ -42,419 +47,491 @@ export function useZoyaStrategy() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [strategy, setStrategy] = useState<Strategy | null>(null);
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      role: 'assistant', 
-      content: "Hello! I'm Zoya, your AI investment strategist. I can help you create a personalized investment strategy across multiple chains. Tell me about your investment goals or simply deposit funds to get started." 
-    }
-  ]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const { account: address } = useWallet();
+  
+  // Reference to Socket.IO manager
+  const socketManagerRef = useRef<ReturnType<typeof SocketIOManager.getInstance> | null>(null);
 
+  // Initialize messages after component mounts to prevent hydration mismatch
+  useEffect(() => {
+    if (!isInitialized) {
+      setMessages([
+        {
+          role: "assistant",
+          content:
+            "Hello! I'm Zoya, your AI investment strategist. I can help you create a personalized investment strategy across multiple chains. Tell me about your investment goals or simply deposit funds to get started.",
+        },
+      ]);
+      setIsInitialized(true);
+    }
+  }, [isInitialized]);
+  
   // Chain names mapping - only using Avalanche Fuji testnet
-  const chainNames: {[key: number]: string} = {
+  const chainNames: { [key: number]: string } = {
     43113: "Avalanche Fuji",
   };
-  
-  // Initialize conversation with Zoya agent
-  const initializeConversation = useCallback(async () => {
-    if (!address) {
-      console.error('Cannot initialize conversation: wallet not connected');
-      return null;
-    }
-    
-    // Try different API endpoints until one works
-    // Based on ElizaOS structure, the most likely endpoints are:
-    const endpoints = [
-      'https://crossmind.reponchain.com/api/agent/chat', // Direct agent chat endpoint
-      'https://crossmind.reponchain.com/api/agents/2e7fded5-6c90-0786-93e9-40e713a5e19d/conversations', // Agent-specific conversation
-      'https://crossmind.reponchain.com/api/agents/conversations', // General agents conversation endpoint
-      'https://crossmind.reponchain.com/api/agents/create-conversation', // Original endpoint
-      'https://crossmind.reponchain.com/api/agents/conversation', // Singular form
-      'https://crossmind.reponchain.com/api/conversations', // Core conversations endpoint
-      'https://crossmind.reponchain.com/api/messaging/conversations' // Messaging namespace
-    ];
-    
-    let lastError = null;
-    
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`Trying endpoint: ${endpoint}`);
-        
-        // Create a new conversation with Zoya agent
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            address,
-            agentId: '2e7fded5-6c90-0786-93e9-40e713a5e19d' // Zoya agent ID
-          }),
-          credentials: 'include',
-        });
-        
-        if (response.ok) {
-          console.log(`Success with endpoint: ${endpoint}`);
-          const data = await response.json();
-          console.log('Response data:', data);
-          
-          if (data.conversationId) {
-            setConversationId(data.conversationId);
-            return data.conversationId;
-          } else if (data.id) {
-            // Alternative response format
-            setConversationId(data.id);
-            return data.id;
-          } else {
-            console.error('Unexpected response format:', data);
-          }
-        } else {
-          const errorText = await response.text();
-          console.error(`Failed with endpoint ${endpoint}: ${response.status}`, errorText);
-        }
-      } catch (error) {
-        console.error(`Error with endpoint ${endpoint}:`, error);
-        lastError = error;
-      }
-    }
-    
-    console.error('All endpoints failed. Last error:', lastError);
-    return null;
-  }, [address]);
 
   // Add a message to the chat
-  const addMessage = useCallback((role: "user" | "assistant", content: string) => {
-    setMessages(prev => [...prev, { role, content }]);
-  }, []);
-
-  // Send a message to Zoya agent
-  const sendMessage = useCallback(async (content: string, contextData?: Record<string, any>) => {
-    setIsLoading(true);
-    
-    try {
-      let activeConversationId = conversationId;
+  const addMessage = useCallback(
+    (role: "user" | "assistant", content: string) => {
+      setMessages((prev) => [...prev, { role, content }]);
+    },
+    []
+  );
+  
+  // Initialize Socket.IO connection on component mount
+  useEffect(() => {
+    if (address && typeof window !== 'undefined') {
+      console.log("[Socket.IO] Initializing connection for address:", address);
       
-      // Initialize conversation if it doesn't exist
-      if (!activeConversationId) {
-        activeConversationId = await initializeConversation();
-        if (!activeConversationId) {
-          throw new Error('Failed to initialize conversation');
-        }
-      }
-      
-      // Add user message to the local state immediately
-      addMessage('user', content);
-      
-      // Prepare the message request
-      const messageRequest: MessageRequest = {
-        content,
-      };
-      
-      // Add context data if provided
-      if (contextData) {
-        messageRequest.contextData = contextData;
-      }
-      
-      // Try different message sending endpoints
-      // Based on ElizaOS structure and the Zoya agent implementation
-      const messageEndpoints = [
-        `https://crossmind.reponchain.com/api/agent/chat`, // Direct agent chat endpoint
-        `https://crossmind.reponchain.com/api/agents/send-message/${activeConversationId}`, // Original endpoint
-        `https://crossmind.reponchain.com/api/agents/2e7fded5-6c90-0786-93e9-40e713a5e19d/conversations/${activeConversationId}/messages`, // Agent-specific conversation
-        `https://crossmind.reponchain.com/api/agents/conversations/${activeConversationId}/messages`, // General agents conversation endpoint
-        `https://crossmind.reponchain.com/api/conversations/${activeConversationId}/messages`, // Core conversations endpoint
-        `https://crossmind.reponchain.com/api/messaging/conversations/${activeConversationId}/messages` // Messaging namespace
-      ];
-      
-      let response = null;
-      let responseData = null;
-      let lastError = null;
-      
-      for (const endpoint of messageEndpoints) {
-        try {
-          console.log(`Trying to send message to endpoint: ${endpoint}`);
-          response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              ...messageRequest,
-              agentId: '2e7fded5-6c90-0786-93e9-40e713a5e19d' // Ensure the agent ID is included
-            }),
-            credentials: 'include',
-          });
+      // Lazy import Socket.IO manager
+      import("../lib/socketio-manager").then(module => {
+        const socketManager = module.default.getInstance();
+        socketManagerRef.current = socketManager;
+        
+        // Initialize Socket.IO connection with wallet address as entity ID
+        // and the fixed server ID as documented in the reference implementation
+        socketManager.initialize(
+          address, // entity ID (wallet address)
+          "00000000-0000-0000-0000-000000000000" // server ID
+        );
+        
+        // Register for message broadcasts
+        const unsubscribe = socketManager.onMessageBroadcast((data) => {
+          console.log("[Socket.IO] Received message broadcast:", data);
           
-          if (response.ok) {
-            console.log(`Success sending message to: ${endpoint}`);
-            responseData = await response.json();
-            console.log('Message response data:', responseData);
-            break;
-          } else {
-            const errorText = await response.text();
-            console.error(`Failed with message endpoint ${endpoint}: ${response.status}`, errorText);
+          // Extract text from various possible locations in the data structure
+          const messageText = typeof data.text === 'string' ? data.text : 
+                             (data.message || 
+                             (data.payload && data.payload.message) || 
+                             (data.payload && data.payload.text) || 
+                             '');
+          
+          // Filter out temporary messages and our own echoed messages
+          if (messageText && 
+              messageText !== "Processing your request..." && 
+              data.senderId !== address) { // Don't show our own messages twice
+            console.log("[Socket.IO] Adding assistant message to chat:", messageText);
+            addMessage("assistant", messageText);
           }
-        } catch (error) {
-          console.error(`Error with message endpoint ${endpoint}:`, error);
-          lastError = error;
-        }
-      }
-      
-      if (!response || !response.ok) {
-        throw new Error(`Failed to send message: ${lastError || 'All endpoints failed'}`);
-      }
-      
-      // Add Zoya's response to the local state
-      if (responseData.response && responseData.response.content) {
-        addMessage('assistant', responseData.response.content);
-      } else if (responseData.content) {
-        // Alternative response format
-        addMessage('assistant', responseData.content);
-      }
-      
-      // Check if the response contains strategy data
-      if (responseData.response && responseData.response.strategyData) {
-        setStrategy(responseData.response.strategyData);
-      } else if (responseData.strategyData) {
-        // Alternative response format
-        setStrategy(responseData.strategyData);
-      }
-      
-      return responseData;
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      addMessage('assistant', "I'm sorry, I encountered an error while processing your message. Please try again.");
-      return null;
-    } finally {
-      setIsLoading(false);
+        });
+        
+        // Return cleanup function
+        return () => {
+          unsubscribe();
+        };
+      });
     }
-  }, [conversationId, initializeConversation, addMessage]);
+  }, [address, addMessage]);
+
+  // Send a message to Zoya agent using the hybrid approach (Socket.IO + REST API)
+  const sendMessage = useCallback(
+    async (content: string, contextData?: Record<string, any>) => {
+      setIsLoading(true);
+
+      try {
+        if (!address) {
+          throw new Error("Wallet not connected");
+        }
+
+        // Add user message to the local state immediately
+        addMessage("user", content);
+
+        // HYBRID APPROACH: Try Socket.IO first, then fallback to REST API if needed
+        let responseData;
+        let usedSocketIO = false;
+        
+        // Attempt to send via Socket.IO first
+        if (socketManagerRef.current && typeof window !== 'undefined') {
+          try {
+            console.log("[Socket.IO] Attempting to send message via Socket.IO");
+            
+            // Add a temporary processing message for better UX
+            addMessage("assistant", "Processing your request...");
+            
+            // Fixed values for Socket.IO parameters
+            const channelId = address; // Using wallet address as channelId
+            const agentId = "2e7fded5-6c90-0786-93e9-40e713a5e19d"; // Zoya agent ID
+            
+            // Add serverId and sender info to the contextData metadata
+            const enhancedMetadata = {
+              ...contextData,
+              serverId: "00000000-0000-0000-0000-000000000000",
+              senderId: address
+            };
+            
+            // Send the message via Socket.IO - correct signature is:
+            // sendMessage(message, channelId, agentId, metadata?)
+            await socketManagerRef.current.sendMessage(
+              content,          // message content
+              channelId,        // channel ID (using wallet address)
+              agentId,          // agent ID (Zoya agent)
+              enhancedMetadata  // metadata with additional context
+            );
+            
+            console.log("[Socket.IO] Message sent successfully with proper payload format");
+            usedSocketIO = true;
+            
+            // The real response will come through the socket listener we set up earlier
+            // The temporary message will be replaced by the real response when it arrives
+          } catch (socketError) {
+            console.error("[Socket.IO] Error sending message, falling back to REST API:", socketError);
+            // Continue to REST API fallback
+          }
+        }
+        
+        // 2. Fallback to REST API if Socket.IO failed or is not available
+        if (!usedSocketIO) {
+          console.log("[REST API] Using REST API fallback");
+          
+          // Matching the Postman example - using a simple message structure
+          interface ElizaMessageRequest {
+            message: string;
+            agentId: string;
+            roomId: string;
+            // Optional metadata field for context
+            metadata?: Record<string, any>;
+          }
+
+          // Create a minimal request matching the Postman example
+          const messageRequest: ElizaMessageRequest = {
+            message: content,
+            agentId: "2e7fded5-6c90-0786-93e9-40e713a5e19d", // Zoya agent ID
+            roomId: address || "anonymous-room", // Use wallet address as room ID
+          };
+
+          // Add context data as metadata if provided
+          if (contextData && Object.keys(contextData).length > 0) {
+            messageRequest.metadata = contextData;
+          }
+
+          console.log(
+            "[REST API] Sending message request:",
+            JSON.stringify(messageRequest, null, 2)
+          );
+
+          const jsonBody = JSON.stringify(messageRequest);
+
+          try {
+            const response = await fetch(
+              "https://crossmind.reponchain.com/api/messaging/submit",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Accept: "application/json",
+                },
+                body: jsonBody,
+              }
+            );
+            
+            console.log("[REST API] Response status:", response.status);
+            
+            if (!response.ok) {
+              // Try to parse the error response
+              const errorText = await response.text();
+              let errorData;
+
+              try {
+                errorData = JSON.parse(errorText);
+                console.error(
+                  "[REST API] Error response:",
+                  JSON.stringify(errorData, null, 2)
+                );
+              } catch (e) {
+                console.error("[REST API] Non-JSON error response:", errorText);
+                errorData = { error: "Non-JSON error response", text: errorText };
+              }
+
+              throw new Error(
+                `API request failed with status ${
+                  response.status
+                }: ${JSON.stringify(errorData)}`
+              );
+            }
+
+            // Parse successful response
+            responseData = await response.json();
+            console.log("[REST API] Success response:", JSON.stringify(responseData, null, 2));
+            
+            // Since we're using REST API and not Socket.IO, we need to manually add
+            // a temporary response message for better UX until a real response comes
+            if (responseData && responseData.status === "success") {
+              // Set a temporary processing message
+              addMessage("assistant", "Processing your request...");
+            }
+          } catch (error) {
+            console.error("[REST API] Error during request:", error);
+            throw error;
+          }
+        }
+
+        // Handle the response - ElizaOS messaging system response format
+        // Only process responseData if it exists (it will be undefined when using Socket.IO path)
+        if (responseData && (responseData.success || responseData.message)) {
+          // Extract the assistant's response from various possible fields
+          let assistantResponse = "";
+
+          if (responseData.response) {
+            assistantResponse = responseData.response;
+          } else if (responseData.content) {
+            assistantResponse = responseData.content;
+          } else if (responseData.text) {
+            assistantResponse = responseData.text;
+          } else if (responseData.message?.content) {
+            assistantResponse = responseData.message.content;
+          } else if (responseData.reply) {
+            assistantResponse = responseData.reply;
+          } else {
+            // If no immediate response, add a generic acknowledgment
+            assistantResponse = "Message received. Processing your request...";
+          }
+
+          if (assistantResponse) {
+            addMessage("assistant", assistantResponse);
+          }
+        } else if (responseData && responseData.error) {
+          throw new Error(responseData.error);
+        } else if (responseData) {
+          // Fallback response handling
+          const responseText =
+            responseData.response?.text ||
+            responseData.message?.text ||
+            responseData.reply ||
+            responseData.content ||
+            "Message sent successfully.";
+          addMessage("assistant", responseText);
+        }
+
+        // Check if the response contains strategy data
+        if (responseData && responseData.strategyData) {
+          setStrategy(responseData.strategyData);
+        } else if (responseData && responseData.metadata?.strategyData) {
+          setStrategy(responseData.metadata.strategyData);
+        } else if (responseData && responseData.contextData?.strategyData) {
+          setStrategy(responseData.contextData.strategyData);
+        }
+        
+        // Successfully processed the message
+        return responseData || true;
+      } catch (error) {
+        console.error("Failed to send message:", error);
+        addMessage(
+          "assistant",
+          "I'm sorry, I encountered an error while processing your message. Please try again."
+        );
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [address, addMessage]
+  );
 
   // Generate a strategy based on risk level and amount
-  const generateStrategy = useCallback(async (
-    amount: number,
-    riskLevel: "Low" | "Medium" | "High",
-    preferredChains?: number[]
-  ) => {
-    setIsGenerating(true);
-    
-    try {
-      // Prepare context data with strategy parameters
-      const contextData = {
-        strategyRequest: {
-          amount,
-          riskLevel,
-          preferredChains: preferredChains || [],
-          walletAddress: address
+  const generateStrategy = useCallback(
+    async (
+      amount: number,
+      riskLevel: "Low" | "Medium" | "High",
+      preferredChains?: number[]
+    ) => {
+      setIsGenerating(true);
+
+      try {
+        // Prepare context data with strategy parameters
+        const contextData = {
+          strategyRequest: {
+            amount,
+            riskLevel,
+            preferredChains: preferredChains || [],
+            walletAddress: address,
+          },
+        };
+
+        // Send strategy generation request to Zoya
+        const message = `I'd like to generate a ${riskLevel} risk investment strategy with ${amount} USDC across multiple chains.`;
+        const response = await sendMessage(message, contextData);
+
+        if (!response) {
+          throw new Error("Failed to generate strategy: No response received");
         }
-      };
-      
-      // Send strategy generation request to Zoya
-      const message = `I'd like to generate a ${riskLevel} risk investment strategy with ${amount} USDC across multiple chains.`;
-      const response = await sendMessage(message, contextData);
-      
-      if (!response || !response.response || !response.response.strategyData) {
-        throw new Error('Failed to generate strategy: Invalid response');
+
+        // Try to extract strategy data from various possible response formats
+        let strategyData = null;
+        if (response.strategyData) {
+          strategyData = response.strategyData;
+        } else if (response.metadata?.strategyData) {
+          strategyData = response.metadata.strategyData;
+        } else if (Array.isArray(response)) {
+          // Look for strategy data in the response array
+          const strategyMessage = response.find((msg) => msg.strategyData);
+          if (strategyMessage) {
+            strategyData = strategyMessage.strategyData;
+          }
+        }
+
+        if (strategyData) {
+          setStrategy(strategyData);
+          return strategyData as Strategy;
+        } else {
+          // If no structured strategy data, create a mock strategy based on the response
+          const mockStrategy: Strategy = {
+            id: `strategy_${Date.now()}`,
+            name: `${riskLevel} Risk Strategy`,
+            riskLevel,
+            estimatedAPY:
+              riskLevel === "Low" ? 5 : riskLevel === "Medium" ? 12 : 20,
+            amount,
+            chains: [
+              {
+                chainId: 43113,
+                name: "Avalanche Fuji",
+                percentage: 100,
+                protocols: [
+                  {
+                    name: "AAVE",
+                    adapter: "aave-v3",
+                    percentage: 60,
+                  },
+                  {
+                    name: "Compound",
+                    adapter: "compound-v3",
+                    percentage: 40,
+                  },
+                ],
+              },
+            ],
+            status: "pending",
+          };
+          setStrategy(mockStrategy);
+          return mockStrategy;
+        }
+      } catch (error) {
+        console.error("Error generating strategy:", error);
+        addMessage(
+          "assistant",
+          "I'm sorry, there was an error generating your investment strategy. Please try again."
+        );
+        return null;
+      } finally {
+        setIsGenerating(false);
       }
-      
-      return response.response.strategyData as Strategy;
-    } catch (error) {
-      console.error("Error generating strategy:", error);
-      addMessage('assistant', "I'm sorry, there was an error generating your investment strategy. Please try again.");
-      return null;
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [address, sendMessage, addMessage]);
-  
+    },
+    [address, sendMessage, addMessage]
+  );
+
   // Register a strategy with the blockchain
-  const registerStrategy = useCallback(async (strategyToRegister: Strategy) => {
-    try {
-      // Ensure we have an active conversation
-      if (!conversationId) {
-        await initializeConversation();
-      }
-      
-      // Try different strategy registration endpoints
-      // Based on the registerStrategy action in the Zoya agent
-      const strategyEndpoints = [
-        'https://crossmind.reponchain.com/api/agent/chat', // Direct agent chat endpoint for strategy registration
-        'https://crossmind.reponchain.com/api/agents/strategy/register', // Original endpoint
-        'https://crossmind.reponchain.com/api/agents/strategies/register', // Plural form
-        'https://crossmind.reponchain.com/api/agents/2e7fded5-6c90-0786-93e9-40e713a5e19d/strategies/register', // Agent-specific
-        'https://crossmind.reponchain.com/api/strategies/register' // Core strategies endpoint
-      ];
-      
-      let response = null;
-      let lastError = null;
-      
-      for (const endpoint of strategyEndpoints) {
-        try {
-          console.log(`Trying to register strategy with endpoint: ${endpoint}`);
-          response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              strategyId: strategyToRegister.id,
-              walletAddress: address,
-              conversationId,
-              agentId: '2e7fded5-6c90-0786-93e9-40e713a5e19d' // Ensure the agent ID is included
-            }),
-            credentials: 'include',
-          });
-          
-          if (response.ok) {
-            console.log(`Success registering strategy with: ${endpoint}`);
-            break;
-          } else {
-            const errorText = await response.text();
-            console.error(`Failed with strategy endpoint ${endpoint}: ${response.status}`, errorText);
-          }
-        } catch (error) {
-          console.error(`Error with strategy endpoint ${endpoint}:`, error);
-          lastError = error;
+  const registerStrategy = useCallback(
+    async (strategyToRegister: Strategy) => {
+      try {
+        // Send a message to register the strategy
+        const message = `Please register my strategy with ID: ${strategyToRegister.id}`;
+        const contextData = {
+          action: "registerStrategy",
+          strategyId: strategyToRegister.id,
+          walletAddress: address,
+        };
+
+        const response = await sendMessage(message, contextData);
+
+        if (response) {
+          // Update strategy status
+          const updatedStrategy = {
+            ...strategyToRegister,
+            status: "registered" as const,
+          };
+          setStrategy(updatedStrategy);
+          return updatedStrategy;
         }
+
+        return null;
+      } catch (error) {
+        console.error("Error registering strategy:", error);
+        addMessage(
+          "assistant",
+          "I'm sorry, there was an error registering your strategy. Please try again."
+        );
+        return null;
       }
-      
-      if (!response || !response.ok) {
-        throw new Error(`Failed to register strategy: ${lastError || 'All endpoints failed'}`);
-      }
-      
-      const data = await response.json();
-      
-      // Update strategy status
-      const updatedStrategy = { ...strategyToRegister, status: "registered" as const };
-      setStrategy(updatedStrategy);
-      
-      // Add message to chat if not already included in response
-      if (!data.message) {
-        addMessage('assistant', "Your strategy has been successfully registered! Would you like me to execute it now?");
-      }
-      
-      return updatedStrategy;
-    } catch (error) {
-      console.error("Error registering strategy:", error);
-      addMessage('assistant', "I'm sorry, there was an error registering your strategy. Please try again.");
-      return null;
-    }
-  }, [conversationId, initializeConversation, address, addMessage]);
-  
+    },
+    [address, sendMessage, addMessage]
+  );
+
   // Execute a registered strategy
-  const executeStrategy = useCallback(async (strategyToExecute: Strategy) => {
-    try {
-      // Ensure we have an active conversation
-      if (!conversationId) {
-        await initializeConversation();
-      }
-      
-      // Try different strategy execution endpoints
-      // Based on the Zoya agent implementation
-      const executeEndpoints = [
-        'https://crossmind.reponchain.com/api/agent/chat', // Direct agent chat endpoint for strategy execution
-        'https://crossmind.reponchain.com/api/agents/strategy/execute', // Original endpoint
-        'https://crossmind.reponchain.com/api/agents/strategies/execute', // Plural form
-        'https://crossmind.reponchain.com/api/agents/2e7fded5-6c90-0786-93e9-40e713a5e19d/strategies/execute', // Agent-specific
-        'https://crossmind.reponchain.com/api/strategies/execute' // Core strategies endpoint
-      ];
-      
-      let response = null;
-      let lastError = null;
-      
-      for (const endpoint of executeEndpoints) {
-        try {
-          console.log(`Trying to execute strategy with endpoint: ${endpoint}`);
-          response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              strategyId: strategyToExecute.id,
-              walletAddress: address,
-              conversationId,
-              agentId: '2e7fded5-6c90-0786-93e9-40e713a5e19d' // Ensure the agent ID is included
-            }),
-            credentials: 'include',
-          });
-          
-          if (response.ok) {
-            console.log(`Success executing strategy with: ${endpoint}`);
-            break;
-          } else {
-            const errorText = await response.text();
-            console.error(`Failed with execute endpoint ${endpoint}: ${response.status}`, errorText);
-          }
-        } catch (error) {
-          console.error(`Error with execute endpoint ${endpoint}:`, error);
-          lastError = error;
+  const executeStrategy = useCallback(
+    async (strategyToExecute: Strategy) => {
+      try {
+        // Send a message to execute the strategy
+        const message = `Please execute my strategy with ID: ${strategyToExecute.id}`;
+        const contextData = {
+          action: "executeStrategy",
+          strategyId: strategyToExecute.id,
+          walletAddress: address,
+        };
+
+        const response = await sendMessage(message, contextData);
+
+        if (response) {
+          // Update strategy status
+          const updatedStrategy = {
+            ...strategyToExecute,
+            status: "executed" as const,
+          };
+          setStrategy(updatedStrategy);
+          return updatedStrategy;
         }
+
+        return null;
+      } catch (error) {
+        console.error("Error executing strategy:", error);
+        addMessage(
+          "assistant",
+          "I'm sorry, there was an error executing your strategy. Please try again."
+        );
+        return null;
       }
-      
-      if (!response || !response.ok) {
-        throw new Error(`Failed to execute strategy: ${lastError || 'All endpoints failed'}`);
-      }
-      
-      const data = await response.json();
-      
-      // Update strategy status
-      const updatedStrategy = { ...strategyToExecute, status: "executed" as const };
-      setStrategy(updatedStrategy);
-      
-      // Add message to chat if not already included in response
-      if (!data.message) {
-        addMessage('assistant', "Great news! Your strategy has been successfully executed. Your funds have been distributed across multiple chains according to the optimized allocation. You can monitor your investments in the Portfolio section.");
-      }
-      
-      return updatedStrategy;
-    } catch (error) {
-      console.error("Error executing strategy:", error);
-      addMessage('assistant', "I'm sorry, there was an error executing your strategy. Please try again.");
-      return null;
-    }
-  }, [conversationId, initializeConversation, address, addMessage]);
-  
+    },
+    [address, sendMessage, addMessage]
+  );
+
   // Process user message and determine if we need to take action
-  const processMessage = useCallback(async (
-    message: string,
-    amount?: number,
-    riskLevel?: "Low" | "Medium" | "High"
-  ) => {
-    // Check for strategy generation intent
-    const lowerMessage = message.toLowerCase();
-    if (
-      (lowerMessage.includes('generat') || lowerMessage.includes('creat') || lowerMessage.includes('make')) && 
-      (lowerMessage.includes('strateg') || lowerMessage.includes('invest'))
-    ) {
-      if (amount && riskLevel) {
-        return await generateStrategy(amount, riskLevel);
+  const processMessage = useCallback(
+    async (
+      message: string,
+      amount?: number,
+      riskLevel?: "Low" | "Medium" | "High"
+    ) => {
+      // Check for strategy generation intent
+      const lowerMessage = message.toLowerCase();
+      if (
+        (lowerMessage.includes("generat") ||
+          lowerMessage.includes("creat") ||
+          lowerMessage.includes("make")) &&
+        (lowerMessage.includes("strateg") || lowerMessage.includes("invest"))
+      ) {
+        if (amount && riskLevel) {
+          return await generateStrategy(amount, riskLevel);
+        } else {
+          // If requesting strategy but missing parameters, send a normal message
+          await sendMessage(message);
+        }
       } else {
-        // If requesting strategy but missing parameters, send a normal message
+        // For general messages, just send them normally
         await sendMessage(message);
       }
-    } else {
-      // For general messages, just send them normally
-      await sendMessage(message);
-    }
-    
-    return null;
-  }, [sendMessage, generateStrategy]);
 
-  // Initialize conversation when hook is first used
-  useCallback(async () => {
-    if (!conversationId) {
-      await initializeConversation();
-    }
-  }, [conversationId, initializeConversation])();
+      return null;
+    },
+    [sendMessage, generateStrategy]
+  );
 
   return {
     isGenerating,
     isLoading,
     strategy,
     messages,
-    conversationId,
     generateStrategy,
     registerStrategy,
     executeStrategy,
