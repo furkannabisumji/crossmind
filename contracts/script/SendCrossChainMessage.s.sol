@@ -21,7 +21,7 @@ contract SendCrossChainMessageScript is Script {
         uint256 amount = 0;
 
         // Empty tokenAmounts array
-        Client.EVMTokenAmount;
+        Client.EVMTokenAmount[] memory tokenAmounts;
 
         // Construct the message
         Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
