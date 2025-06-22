@@ -31,14 +31,14 @@ graph TD
 
 ## 📝 Smart Contracts Coverage & Testing Results
 
-| Contract               | Status        | Tests Implemented                                                 | Tests Result   |
-| ---------------------- | ------------- | ----------------------------------------------------------------- | -------------- |
-| CrossMindVault.sol     | ✅ Final      | deposit, withdraw, lock, unlock, removeBalance, balanceOf         | ✅ All passed  |
-| StrategyManager.sol    | ✅ Final      | registerStrategy, confirmStrategy, exitStrategy, triggerRebalance | ✅ All passed  |
-| CrossChainExecutor.sol | ✅ Final      | sendMessageOrToken, ccipReceive                                   | ✅ All passed  |
-| AdapterRegistry.sol    | ✅ Final (v1) | invest, withdraw (registerAdapter planned for next version)       | ✅ All passed  |
-| IStrategyAdapter.sol   | ✅ Interface  | N/A                                                               | Interface only |
-| AaveV3Adapter.sol      | ✅ Final      | invest, withdraw                                                  | ✅ All passed  |
+| Contract               | Status        | Tests Implemented                                                                           | Tests Result   |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------------------- | -------------- |
+| CrossMindVault.sol     | ✅ Final      | deposit, withdraw, lock, unlock, removeBalance, balanceOf, getBalance, failOnLockedWithdraw | ✅ All passed  |
+| StrategyManager.sol    | ✅ Final      | registerStrategy, confirmStrategy, exitStrategy, triggerRebalance                           | ✅ All passed  |
+| CrossChainExecutor.sol | ✅ Final      | sendMessageOrToken, ccipReceive                                                             | ✅ All passed  |
+| AdapterRegistry.sol    | ✅ Final (v1) | invest, withdraw (registerAdapter planned for next version)                                 | ✅ All passed  |
+| IStrategyAdapter.sol   | ✅ Interface  | N/A                                                                                         | Interface only |
+| AaveV3Adapter.sol      | ✅ Final      | invest, withdraw                                                                            | ✅ All passed  |
 
 ---
 
@@ -97,7 +97,7 @@ forge test -vv
 
 | Contract               | Address                                    |
 | ---------------------- | ------------------------------------------ |
-| CrossMindVault.sol     | 0x0AfBAcDE516eE2599C3d6E233c804ca692245392 |
+| CrossMindVault.sol     | 0x1E190C5AB29E179443fb7f530082962A0AE38403 |
 | StrategyManager.sol    | 0x8B162A960CA4F45e219db23b90132bF6B0e56271 |
 | CrossChainExecutor.sol | 0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b |
 | AdapterRegistry.sol    | 0x813F86D4Ecf3eFd328072D684f558c3B78a1b841 |
@@ -146,7 +146,7 @@ Contract [src/CrossMindVault.sol:CrossMindVault] "0x0b030C4fD5a31016D753102a6E93
 
 | Contract Name      | Address                                      | Verify Command              | Verification Status | Link                                                                                                 |
 | ------------------ | -------------------------------------------- | --------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
-| CrossMindVault     | `0x0AfBAcDE516eE2599C3d6E233c804ca692245392` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x0AfBAcDE516eE2599C3d6E233c804ca692245392) |
+| CrossMindVault     | `0x1E190C5AB29E179443fb7f530082962A0AE38403` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x1E190C5AB29E179443fb7f530082962A0AE38403) |
 | CrossChainExecutor | `0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0xe8ecaced7b444f3f1cf5e324b9657e4fbdb8dd7b) |
 | StrategyManager    | `0x8B162A960CA4F45e219db23b90132bF6B0e56271` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x8b162a960ca4f45e219db23b90132bf6b0e56271) |
 | AdapterRegistry    | `0x813F86D4Ecf3eFd328072D684f558c3B78a1b841` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x813f86d4ecf3efd328072d684f558c3b78a1b841) |
@@ -200,11 +200,11 @@ forge script script/ConfirmStrategy.s.sol \
 
 | Contract               | Address                                    | Verified Status |
 | ---------------------- | ------------------------------------------ | --------------- |
-| AdapterRegistry.sol    | 0xD082cfD42ecF22Fb704AE3516CE64644eaEA9658 | ✅ Verified     |
-| CrossChainExecutor.sol | 0x5B3124d8EA144151368252A50D1f944AbE15E3EE | ✅ Verified     |
-| CrossMindVault.sol     | 0xD106F14750695E56E78F039da3eaF7136a86dbFa | ✅ Verified     |
-| AaveV3Adapter.sol      | 0x078E218b072512C1aBEA97bEa2593e6F96688f9A | ✅ Verified     |
-| StrategyManager.sol    | 0x92C1EcB1019dE7e49F582CB3120961C08Db468f3 | ✅ Verified     |
+| AdapterRegistry.sol    | 0x1B5530DdB27dD00e73960f45E4232a936826F0a6 | ✅ Verified     |
+| CrossChainExecutor.sol | 0x3234f3CaD43AFf7fbA1bec760B5d50F843791dcC | ✅ Verified     |
+| CrossMindVault.sol     | 0x0b030C4fD5a31016D753102a6E939019E9119bb2 | ✅ Verified     |
+| AaveV3Adapter.sol      | 0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b | ✅ Verified     |
+| StrategyManager.sol    | 0x224AF5c393f5456E57555951e8A8f32fD27F21C2 | ✅ Verified     |
 
 ### 📋 Strategy Status
 
