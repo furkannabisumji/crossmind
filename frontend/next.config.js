@@ -20,7 +20,7 @@ const nextConfig = {
     reactRemoveProperties: process.env.NODE_ENV === "production",
   },
 
-  // Simple optimization for Next.js 15
+  // Optimization for Next.js 15 and Node.js compatibility
   webpack: (config, { isServer, dev }) => {
     // Add stability improvements for development
     if (!isServer) {
@@ -32,6 +32,21 @@ const nextConfig = {
       
       // Use single runtime chunk for better CSS stability
       config.optimization.runtimeChunk = 'single';
+
+      // Polyfill or mock Node.js specific modules for browser environment
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        // Mock 'fs' with an empty module
+        'fs': false,
+        // Mock 'worker_threads' with an empty module
+        'worker_threads': false,
+        // Add other Node.js modules that might be problematic
+        'path': false,
+        'crypto': false,
+        'stream': false,
+        'os': false,
+        'util': require.resolve('util/'),
+      };
     }
     return config;
   },
