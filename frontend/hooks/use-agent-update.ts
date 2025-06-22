@@ -111,8 +111,10 @@ export function useAgentUpdate(initialAgent: Agent) {
       const currentSettings = agent.settings || {};
       const currentSecrets = currentSettings.secrets || {};
 
+      // Ensure currentSecrets is definitively an object type before spreading
+      const safeSecrets = currentSecrets || {};
       const newSecrets = {
-        ...currentSecrets,
+        ...safeSecrets,
         [key]: value,
       };
 

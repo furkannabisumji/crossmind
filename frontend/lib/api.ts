@@ -217,6 +217,32 @@ const fetcher = async ({
   }
 };
 
+// Internal fetcher for local API routes that doesn't prepend API_PREFIX
+const internalFetcher = async <T>({ url, method, body }: {
+  url: string;
+  method?: string;
+  body?: any;
+}): Promise<T> => {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  const res = await fetch(url, {
+    method: method || "GET",
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  // Always return JSON for consistency with other API responses
+  try {
+    const data = await res.json();
+    return data as T;
+  } catch (error) {
+    clientLogger.error("Error parsing JSON from internal API", { error });
+    throw new Error("Failed to parse response from internal API");
+  }
+};
+
 export const apiClient = {
   // Agent specific
   getAgents: (): Promise<{ data: { agents: Partial<AgentWithStatus>[] } }> =>
@@ -338,6 +364,26 @@ export const apiClient = {
     fetcher({
       url: `/messaging/dm-channel?targetUserId=${targetCentralUserId}&currentUserId=${currentUserId}`,
     }),
+  createChannel: (
+    payload: {
+      name: string;
+      messageServerId: UUID;
+      type: string; // 'group', 'dm', etc.
+      description?: string;
+      id?: UUID; // Optional ID to specify for special channels
+      participantIds?: UUID[];
+    },
+  ): Promise<{
+    success: boolean;
+    data: { channel: Partial<MessageChannel> };
+  }> => {
+    clientLogger.info("Creating channel", payload);
+    return fetcher({
+      url: "/messaging/channels",
+      method: "POST",
+      body: payload,
+    });
+  },
   createCentralGroupChat: (payload: {
     name: string;
     participantCentralUserIds: UUID[];
@@ -729,9 +775,10 @@ export const apiClient = {
     // Log all params for debugging
     clientLogger.info("Adding agent to channel", { channelId, agentId });
     
-    // Use the correct endpoint format with messaging prefix
-    return fetcher({
-      url: `/messaging/central-channels/${channelId}/agents`,
+    // Use our local Next.js API proxy route with internalFetcher to avoid duplicate /api prefix
+    // This routes through /app/api/messaging/central-channels/[channelId]/agents/route.js
+    return internalFetcher({
+      url: `/api/messaging/central-channels/${channelId}/agents`,
       method: "POST",
       body: { agentId },
     });
@@ -748,6 +795,29 @@ export const apiClient = {
       url: `/messaging/central-channels/${channelId}/agents/${agentId}`,
       method: "DELETE",
     }),
+  
+  // Simplified helper that creates a dynamic channel and adds an agent to it
+  // in a single operation, using our consolidated API endpoint
+  addAgentToDynamicChannel: (
+    agentId: UUID,
+  ): Promise<{
+    success: boolean;
+    data: { 
+      channelId: UUID; 
+      agentId: UUID; 
+      channelName: string;
+      message?: string;
+    };
+  }> => {
+    clientLogger.info("Adding agent to dynamic channel", { agentId });
+    
+    // Use our consolidated API endpoint
+    return internalFetcher({
+      url: `/api/add-agent-to-channel`,
+      method: "POST",
+      body: { agentId },
+    });
+  },
 
   getAgentsForChannel: (
     channelId: UUID,

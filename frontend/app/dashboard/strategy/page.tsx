@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAccount } from "wagmi";
 import type { UiMessage } from "@/hooks/use-query-hooks";
-import { ChannelType } from "@elizaos/core";
+import { ChannelType, UUID } from "@elizaos/core";
 import { apiClient } from "@/lib/api";
 
 // Use UiMessage directly since it already has all required fields
@@ -20,47 +20,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Slider } from "@/components/ui/slider";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Brain,
-  ArrowRight,
-  ChevronRight,
-  PlusCircle,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
+
+import { Brain, ArrowRight, Loader2 } from "lucide-react";
 import { useTokenApproval } from "@/hooks/use-token-approval";
 import { useVault } from "@/hooks/use-vault";
 import { useSocketChat } from "@/hooks/use-socket-chat";
-import { ErrorBoundary } from "@/components/error-boundary";
-
-// Chain options for multi-chain investment
-const chainOptions = [
-  { id: 1, name: "Ethereum" },
-  { id: 137, name: "Polygon" },
-  { id: 43114, name: "Avalanche" },
-  { id: 42161, name: "Arbitrum" },
-  { id: 10, name: "Optimism" },
-  { id: 56, name: "BNB Chain" },
-];
 
 export default function StrategyPage() {
   // UI state
@@ -88,13 +52,15 @@ export default function StrategyPage() {
   const { deposit } = useVault();
 
   // Use our Zoya strategy hook that integrates with the CrossMind API
-  const channelId = "00000000-0000-0000-0000-000000000000";
   const contextId = "2e7fded5-6c90-0786-93e9-40e713a5e19d"; // Zoya agent id
   const [messages, setMessages] = useState<Message[]>([]);
   const [isInputDisabled, setIsInputDisabled] = useState(false);
 
+  // State to hold the dynamic channel ID created for this session
+  const [dynamicChannelId, setDynamicChannelId] = useState<UUID | undefined>();
+
   const socketChat = useSocketChat({
-    channelId: "00000000-0000-0000-0000-000000000000" as const,
+    channelId: dynamicChannelId,
     currentUserId: address || "00000000-0000-0000-0000-000000000000",
     contextId: "2e7fded5-6c90-0786-93e9-40e713a5e19d" as const,
     chatType: ChannelType.DM,
@@ -183,20 +149,25 @@ export default function StrategyPage() {
     );
   };
 
-  // Ensure agent is added to channel before chat starts
+  // Ensure agent is added to a dynamic channel before chat starts
   useEffect(() => {
-    if (address && contextId && channelId) {
+    if (address && contextId) {
       apiClient
-        .addAgentToChannel(channelId, contextId)
-        .then(() => {
-          // Optionally log success
-          // console.log('Agent added to channel');
+        .addAgentToDynamicChannel(contextId)
+        .then((result) => {
+          if (result?.data?.channelId) {
+            console.log(
+              `Agent added to dynamic channel: ${result.data.channelId}`
+            );
+            // Update the channel ID state to trigger useSocketChat to connect
+            setDynamicChannelId(result.data.channelId);
+          }
         })
         .catch((err) => {
           console.error("Failed to add agent to channel", err);
         });
     }
-  }, [address, contextId, channelId]);
+  }, [address, contextId]);
 
   // Initialize conversation with Zoya when component mounts
   useEffect(() => {

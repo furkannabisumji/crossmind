@@ -212,16 +212,22 @@ export class SocketIOManager extends EventAdapter {
 
     // Create a single socket connection to the ElizaOS backend
     const fullURL = "https://crossmind.reponchain.com";
-    clientLogger.info("connecting to", fullURL);
+    clientLogger.info("[SocketIO] Connecting to", fullURL);
     this.socket = io(fullURL, {
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       transports: ["websocket", "polling"],
-      path: "/api/socket.io",  // Specify the correct path for Socket.IO endpoint
+      path: "/socket.io",  // Standard Socket.IO path (without /api prefix)
       secure: true,  // Ensure secure connections
       rejectUnauthorized: true,  // Verify SSL certificate
+    });
+    
+    clientLogger.debug("[SocketIO] Connection options:", {
+      url: fullURL,
+      path: "/socket.io",
+      transports: ["websocket", "polling"]
     });
 
     // Set up connection promise for async operations that depend on connection

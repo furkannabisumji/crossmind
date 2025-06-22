@@ -14,8 +14,8 @@ import type { UiMessage } from "./use-query-hooks";
 import { randomUUID } from "@/lib/utils";
 import clientLogger from "@/lib/logger";
 
-// ElizaOS uses a central message bus with this UUID for all message routing
-const CENTRAL_BUS_CHANNEL_ID = "00000000-0000-0000-0000-000000000000";
+// We now use dynamic channels for agent communication rather than a fixed central bus
+// This enables better isolation between user sessions and prevents cross-talk
 
 interface UseSocketChatProps {
   channelId: UUID | undefined;
@@ -97,20 +97,16 @@ export function useSocketChat({
       );
       const msgChannelId = data.channelId || data.roomId;
 
-      // Accept messages from either the active channel OR the central bus
-      // This ensures agent responses coming through the central bus are not filtered
+      // Accept messages only from the active channel
+      // With dynamic channels, we no longer need to monitor the central bus
       const fromActiveChannel = msgChannelId === channelId;
-      const fromCentralBus = msgChannelId === CENTRAL_BUS_CHANNEL_ID;
-
-      if (!fromActiveChannel && !fromCentralBus) return;
-
-      // If message is from central bus but we have a specific channel active,
-      // log this fact for debugging purposes
-      if (fromCentralBus && !fromActiveChannel && channelId) {
-        clientLogger.info(
-          `[useSocketChat] Processing central bus message for active channel ${channelId}`
-        );
-      }
+      
+      // If this message isn't for our channel, ignore it
+      if (!fromActiveChannel) return;
+      
+      clientLogger.debug(
+        `[useSocketChat] Processing message for channel ${channelId}`
+      );
 
       const isCurrentUser = data.senderId === currentUserId;
 
@@ -148,7 +144,7 @@ export function useSocketChat({
           name: "user",
           channelId: (msgChannelId ||
             channelId ||
-            CENTRAL_BUS_CHANNEL_ID) as UUID,
+            randomUUID()) as UUID,
           createdAt:
             typeof data.createdAt === "number"
               ? data.createdAt
@@ -188,7 +184,7 @@ export function useSocketChat({
           channelId: (data.channelId ||
             data.roomId ||
             channelId ||
-            CENTRAL_BUS_CHANNEL_ID) as UUID,
+            randomUUID()) as UUID,
           createdAt:
             typeof data.createdAt === "number"
               ? data.createdAt
@@ -252,13 +248,8 @@ export function useSocketChat({
 
     socketIOManager.initialize(currentUserId); // Initialize on user context
 
-    // Always join the central bus channel to ensure we receive agent responses
-    if (!socketIOManager.isChannelActive(CENTRAL_BUS_CHANNEL_ID)) {
-      clientLogger.info(
-        `[useSocketChat] useEffect: Joining central bus channel ${CENTRAL_BUS_CHANNEL_ID}`
-      );
-      socketIOManager.joinChannel(CENTRAL_BUS_CHANNEL_ID);
-    }
+    // With dynamic channels, we no longer need to join the central bus
+    // Each user session has its own dedicated channel for agent communication
 
     if (!channelId) {
       // If channelId becomes undefined (e.g., navigating away), ensure we reset the ref
@@ -285,13 +276,12 @@ export function useSocketChat({
       );
     }
 
-    // Accept messages from either the active channel OR the central bus
+    // Only accept messages from the active channel
+    // With dynamic channels, we no longer need to monitor the central bus
     const msgSub = socketIOManager.evtMessageBroadcast.attach(
       (d: MessageBroadcastData) => {
         const msgChannel = d.channelId || d.roomId;
-        return (
-          msgChannel === channelId || msgChannel === CENTRAL_BUS_CHANNEL_ID
-        );
+        return msgChannel === channelId;
       },
       eventHandlers.handleMessageBroadcasting
     );

@@ -20,6 +20,26 @@
       "static/chunks/runtime.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/deposit/page.js"
+    ],
+    "/api/messaging/central-channels/[channelId]/agents/route": [
+      "static/chunks/runtime.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/messaging/central-channels/[channelId]/agents/route.js"
+    ],
+    "/api/create-agent-channel/route": [
+      "static/chunks/runtime.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/create-agent-channel/route.js"
+    ],
+    "/api/add-agent-to-channel/route": [
+      "static/chunks/runtime.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/add-agent-to-channel/route.js"
+    ],
+    "/_not-found/page": [
+      "static/chunks/runtime.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }

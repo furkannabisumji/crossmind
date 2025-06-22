@@ -1,4 +1,6 @@
 {
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/add-agent-to-channel/route": "app/api/add-agent-to-channel/route.js",
   "/dashboard/strategy/page": "app/dashboard/strategy/page.js",
   "/dashboard/deposit/page": "app/dashboard/deposit/page.js"
 }
