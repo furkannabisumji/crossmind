@@ -102,10 +102,15 @@ export function useSocketChat({
       const fromActiveChannel = msgChannelId === channelId;
       
       // If this message isn't for our channel, ignore it
-      if (!fromActiveChannel) return;
+      if (!fromActiveChannel) {
+        clientLogger.warn(
+          `[useSocketChat] Message IGNORED - from channel ${msgChannelId}, but we're subscribed to ${channelId}`
+        );
+        return;
+      }
       
-      clientLogger.debug(
-        `[useSocketChat] Processing message for channel ${channelId}`
+      clientLogger.info(
+        `[useSocketChat] Processing message for channel ${channelId} from ${data.senderId} (isAgent: ${data.senderId !== currentUserId})`
       );
 
       const isCurrentUser = data.senderId === currentUserId;
@@ -246,6 +251,7 @@ export function useSocketChat({
       return;
     }
 
+    clientLogger.info(`[useSocketChat] Initializing with userId: ${currentUserId}, channelId: ${channelId || 'undefined'}`);
     socketIOManager.initialize(currentUserId); // Initialize on user context
 
     // With dynamic channels, we no longer need to join the central bus
@@ -259,6 +265,7 @@ export function useSocketChat({
         );
         joinedChannelRef.current = null;
       }
+      clientLogger.warn('[useSocketChat] No channelId provided - SKIPPING channel join and event subscriptions');
       return;
     }
 

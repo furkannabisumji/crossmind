@@ -59,8 +59,10 @@ export default function StrategyPage() {
   // State to hold the dynamic channel ID created for this session
   const [dynamicChannelId, setDynamicChannelId] = useState<UUID | undefined>();
 
+  // Always call hook unconditionally to avoid React hooks order error
   const socketChat = useSocketChat({
-    channelId: dynamicChannelId,
+    // Use empty string as fallback for channelId to ensure hook is always called
+    channelId: dynamicChannelId || "" as UUID,
     currentUserId: address || "00000000-0000-0000-0000-000000000000",
     contextId: "2e7fded5-6c90-0786-93e9-40e713a5e19d" as const,
     chatType: ChannelType.DM,
@@ -79,7 +81,9 @@ export default function StrategyPage() {
     },
     onUpdateMessage: (messageId: string, updates: Partial<Message>) =>
       setMessages((prev) =>
-        prev.map((msg) => (msg.id === messageId ? { ...msg, ...updates } : msg))
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, ...updates } : msg
+        )
       ),
     onDeleteMessage: (messageId: string) =>
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId)),
@@ -87,7 +91,7 @@ export default function StrategyPage() {
     onInputDisabledChange: (disabled: boolean) => setIsInputDisabled(disabled),
   });
 
-  const { sendMessage } = socketChat;
+  const { sendMessage } = socketChat || {};
 
   // Hydration handling
   const [mounted, setMounted] = useState(false);
@@ -171,10 +175,9 @@ export default function StrategyPage() {
 
   // Initialize conversation with Zoya when component mounts
   useEffect(() => {
-    if (mounted && isConnected && address) {
+    if (mounted && isConnected && address && dynamicChannelId && sendMessage) {
       // Initialize conversation with Zoya when component mounts
       if (displayMessages.length === 0) {
-        const channelId = "00000000-0000-0000-0000-000000000000" as const;
         const serverId = "00000000-0000-0000-0000-000000000000" as const;
         const message =
           "Hi Zoya! I'm interested in creating an investment strategy.";
@@ -186,17 +189,25 @@ export default function StrategyPage() {
           undefined,
           `temp-${Date.now()}`,
           {
-            channel_id: channelId,
+            channel_id: dynamicChannelId,
             server_id: serverId,
             author_id: address,
             content: message,
             source_type: "user",
             raw_message: message,
-          }
+          },
+          dynamicChannelId // Use the dynamic channel ID for the message
         );
       }
     }
-  }, [mounted, isConnected, address, displayMessages.length, sendMessage]);
+  }, [
+    mounted,
+    isConnected,
+    address,
+    displayMessages.length,
+    sendMessage,
+    dynamicChannelId,
+  ]);
 
   // Scroll chat to bottom whenever messages change
   useEffect(() => {
@@ -205,11 +216,11 @@ export default function StrategyPage() {
     }
   }, [displayMessages]);
 
-  if (!mounted) return null;
+  // if (!mounted) return null;
 
   // Handle deposit and move to strategy generation
   const handleDeposit = async () => {
-    if (!depositAmount || parseFloat(depositAmount) <= 0) return;
+    if (!depositAmount || parseFloat(depositAmount) <= 0 || !dynamicChannelId) return;
 
     try {
       // First check and approve tokens if needed
@@ -227,8 +238,7 @@ export default function StrategyPage() {
 
       // Send message to Zoya about successful deposit
       // Define channel and server IDs with proper UUID format
-      const channelId =
-        "00000000-0000-0000-0000-000000000000" as `${string}-${string}-${string}-${string}-${string}`;
+     
       const serverId =
         "00000000-0000-0000-0000-000000000000" as `${string}-${string}-${string}-${string}-${string}`;
       const message = `I've deposited ${depositAmount} USDC. I'd like a ${riskLevel} risk strategy. Can you help me create one?`;
@@ -273,7 +283,7 @@ export default function StrategyPage() {
         isAgent: false,
         name: "You",
         senderId: senderId,
-        channelId: channelId,
+        channelId: dynamicChannelId,
         serverId: serverId,
         createdAt: Date.now(),
         isLoading: true,
@@ -282,23 +292,33 @@ export default function StrategyPage() {
       setMessages((prev) => [...prev, userMessage]);
 
       // Send the message via socket
-      sendMessage(message, serverId, "user", undefined, tempId, {
-        channel_id: channelId,
-        server_id: serverId,
-        author_id: senderId,
-        content: message,
-        source_type: "user",
-        raw_message: message,
-      }).catch((error) => {
-        console.error("Error sending deposit message:", error);
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === tempId
-              ? { ...msg, error: "Failed to send message", isLoading: false }
-              : msg
-          )
-        );
-      });
+      if (sendMessage) {
+        sendMessage(
+          message,
+          serverId,
+          "user",
+          undefined,
+          tempId,
+          {
+            channel_id: dynamicChannelId,
+            server_id: serverId,
+            author_id: senderId,
+            content: message,
+            source_type: "user",
+            raw_message: message,
+          },
+          dynamicChannelId
+        ).catch((error) => {
+          console.error("Error sending deposit message:", error);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? { ...msg, error: "Failed to send message", isLoading: false }
+                : msg
+            )
+          );
+        });
+      }
     } catch (error: unknown) {
       console.error("Deposit error:", error);
       if (error instanceof Error) {
@@ -311,11 +331,10 @@ export default function StrategyPage() {
 
   // Handle error message sending
   const handleSendErrorMessage = (error: Error) => {
-    const channelId = "00000000-0000-0000-0000-000000000000" as const;
     const serverId = "00000000-0000-0000-0000-000000000000" as const;
     const errorMessage = `I'm having trouble with my deposit. Error: ${error.message}`;
 
-    if (address) {
+    if (address && dynamicChannelId && sendMessage) {
       sendMessage(
         errorMessage,
         serverId,
@@ -323,24 +342,24 @@ export default function StrategyPage() {
         undefined,
         `temp-${Date.now()}`,
         {
-          channel_id: channelId,
+          channel_id: dynamicChannelId,
           server_id: serverId,
           author_id: address,
           content: errorMessage,
           source_type: "user",
           raw_message: errorMessage,
-        }
+        },
+        dynamicChannelId
       );
     }
   };
 
   // Handle unknown error
   const handleUnknownError = () => {
-    const channelId = "00000000-0000-0000-0000-000000000000" as const;
     const serverId = "00000000-0000-0000-0000-000000000000" as const;
     const errorMessage = "I'm having trouble with my deposit. Unknown error.";
 
-    if (address) {
+    if (address && dynamicChannelId && sendMessage) {
       sendMessage(
         errorMessage,
         serverId,
@@ -348,26 +367,27 @@ export default function StrategyPage() {
         undefined,
         `temp-${Date.now()}`,
         {
-          channel_id: channelId,
+          channel_id: dynamicChannelId,
           server_id: serverId,
           author_id: address,
           content: errorMessage,
           source_type: "user",
           raw_message: errorMessage,
-        }
+        },
+        dynamicChannelId
       );
     }
   };
 
   // Handle sending messages
   const handleSendMessage = async () => {
-    if (!userInput.trim() || !address) return;
+    if (!userInput.trim() || !address || !dynamicChannelId || !sendMessage)
+      return;
 
     // Create a temporary message ID in UUID format
     const tempId = `00000000-0000-0000-0000-${Date.now()
       .toString()
       .padStart(12, "0")}` as const;
-    const channelId = "00000000-0000-0000-0000-000000000000" as const;
     const serverId = "00000000-0000-0000-0000-000000000000" as const;
     const senderId = (
       address.startsWith("0x")
@@ -382,7 +402,7 @@ export default function StrategyPage() {
       isAgent: false,
       name: "You",
       senderId: senderId,
-      channelId: channelId,
+      channelId: dynamicChannelId,
       serverId: serverId,
       createdAt: Date.now(),
       isLoading: true,
@@ -393,14 +413,22 @@ export default function StrategyPage() {
 
     try {
       // Send the message via socket
-      await sendMessage(userInput, serverId, "user", undefined, tempId, {
-        channel_id: channelId,
-        server_id: serverId,
-        author_id: senderId,
-        content: userInput,
-        source_type: "user",
-        raw_message: userInput,
-      });
+      await sendMessage(
+        userInput,
+        serverId,
+        "user",
+        undefined,
+        tempId,
+        {
+          channel_id: dynamicChannelId,
+          server_id: serverId,
+          author_id: senderId,
+          content: userInput,
+          source_type: "user",
+          raw_message: userInput,
+        },
+        dynamicChannelId
+      ); // Pass the dynamicChannelId as override
 
       // If we're in generate step, check if user is requesting strategy generation
       if (
@@ -444,8 +472,12 @@ export default function StrategyPage() {
   // Handle risk level change
   const handleRiskChange = (level: "Low" | "Medium" | "High") => {
     setRiskLevel(level);
-    if (currentStep === "generate" && address) {
-      const channelId = "00000000-0000-0000-0000-000000000000" as const;
+    if (
+      currentStep === "generate" &&
+      address &&
+      dynamicChannelId &&
+      sendMessage
+    ) {
       const serverId = "00000000-0000-0000-0000-000000000000" as const;
       const tempId = `temp-${Date.now()}`;
       sendMessage(
@@ -455,13 +487,14 @@ export default function StrategyPage() {
         undefined,
         tempId,
         {
-          channel_id: channelId,
+          channel_id: dynamicChannelId,
           server_id: serverId,
           author_id: address,
           content: `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
           source_type: "user",
           raw_message: `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
-        }
+        },
+        dynamicChannelId
       );
     }
   };
