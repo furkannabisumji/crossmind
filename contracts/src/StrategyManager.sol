@@ -77,6 +77,10 @@ contract StrategyManager is Ownable, ReentrancyGuard {
     mapping(uint64 => Chain) public chains;
     mapping(address => Strategy[]) public vaults;
 
+    // New variables for chain tracking
+    mapping(uint256 => address[]) private protocolsByChain;
+    uint256[] private allChains;
+
     event StrategyRegistered(
         address indexed user,
         uint256 amount,
@@ -345,5 +349,44 @@ contract StrategyManager is Ownable, ReentrancyGuard {
 
     function token() external view returns (address) {
         return ICrossMindVault(vault).token();
+    }
+
+    function getAllChains() external view returns (uint256[] memory) {
+        return allChains;
+    }
+
+    function getAllProtocolsByChain(
+        uint256 chainId
+    ) external view returns (address[] memory) {
+        return protocolsByChain[chainId];
+    }
+
+    function addProtocolToRegistry(
+        uint256 chainId,
+        address protocol
+    ) external onlyOwner {
+        if (protocolsByChain[chainId].length == 0) {
+            allChains.push(chainId);
+        }
+        protocolsByChain[chainId].push(protocol);
+    }
+
+    event ProtocolAdded(uint64 indexed chainId, string name, address adapter);
+
+    function setUSDCInSepolia(address usdcAddress) external onlyOwner {
+        uint64 sepoliaChainId = 11155111; // Sepolia chain ID
+        if (isProtocol(sepoliaChainId, usdcAddress)) {
+            revert("USDC already registered for Sepolia");
+        }
+        require(
+            chains[sepoliaChainId].receiver != address(0),
+            "Sepolia chain not supported"
+        );
+        chainProtocols[sepoliaChainId].push(Protocol("USDC", usdcAddress));
+        if (protocolsByChain[sepoliaChainId].length == 0) {
+            allChains.push(sepoliaChainId);
+        }
+        protocolsByChain[sepoliaChainId].push(usdcAddress);
+        emit ProtocolAdded(sepoliaChainId, "USDC", usdcAddress);
     }
 }
