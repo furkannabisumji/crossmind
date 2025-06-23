@@ -60,9 +60,9 @@ export default function StrategyPage() {
   const [dynamicChannelId, setDynamicChannelId] = useState<UUID | undefined>();
 
   // Always call hook unconditionally to avoid React hooks order error
+  // Don't use empty string fallback - let hook properly handle undefined state
   const socketChat = useSocketChat({
-    // Use empty string as fallback for channelId to ensure hook is always called
-    channelId: dynamicChannelId || "" as UUID,
+    channelId: dynamicChannelId,
     currentUserId: address || "00000000-0000-0000-0000-000000000000",
     contextId: "2e7fded5-6c90-0786-93e9-40e713a5e19d" as const,
     chatType: ChannelType.DM,
@@ -155,22 +155,83 @@ export default function StrategyPage() {
 
   // Ensure agent is added to a dynamic channel before chat starts
   useEffect(() => {
-    if (address && contextId) {
-      apiClient
-        .addAgentToDynamicChannel(contextId)
-        .then((result) => {
-          if (result?.data?.channelId) {
-            console.log(
-              `Agent added to dynamic channel: ${result.data.channelId}`
-            );
-            // Update the channel ID state to trigger useSocketChat to connect
-            setDynamicChannelId(result.data.channelId);
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to add agent to channel", err);
-        });
+    if (!address) {
+      console.log('[StrategyPage] No wallet address available, waiting before creating channel');
+      return;
     }
+    
+    console.log('[StrategyPage] Getting dynamic channel for agent', contextId);
+    
+    let isMounted = true; // Flag to handle component unmount
+    
+    // Get a dynamic channel ID for this session
+    apiClient.addAgentToDynamicChannel(contextId).then((result) => {
+      if (!isMounted) return; // Don't update state if component unmounted
+      
+      if (result?.data?.channelId) {
+        const channelId = result.data.channelId as UUID;
+        console.log(`[StrategyPage] SUCCESS! Created dynamic channel: ${channelId} for agent ${contextId}`);
+        
+        // Update state with the new channel ID
+        console.log(`[StrategyPage] BEFORE setting dynamicChannelId state to: ${channelId}`);
+        // Set state and force re-render
+        setDynamicChannelId(channelId);
+        
+        // State update is asynchronous
+        console.log(`[StrategyPage] AFTER setting dynamicChannelId state to: ${channelId}, current value:`, dynamicChannelId);
+        
+        // We need to log after the next render to verify the state was updated
+        setTimeout(() => {
+          console.log(`[StrategyPage] NEXT TICK: dynamicChannelId is now:`, dynamicChannelId);
+        }, 0);
+        
+        // Verify agent was added to the channel
+        console.log(`[StrategyPage] Agent ${contextId} should now be listening on channel ${channelId}`);
+        
+        // Additional debug information
+        console.log(`[StrategyPage] Current User Address: ${address}`);
+        
+        // VERIFICATION: Check if agent is really in the channel
+        apiClient.getAgentsForChannel(channelId).then(result => {
+          console.log(`[StrategyPage] Agents active in channel ${channelId}:`, result?.data?.participants);
+          
+          // Is our agent in the list?
+          const isAgentActive = result?.data?.participants?.includes(contextId);
+          console.log(`[StrategyPage] Is agent ${contextId} active in channel? ${isAgentActive}`);
+          
+          if (!isAgentActive) {
+            console.error(`[StrategyPage] AGENT NOT FOUND IN CHANNEL! This would explain missing responses`);
+          }
+        }).catch(error => {
+          console.error(`[StrategyPage] Error verifying agents in channel:`, error);
+        });
+        
+        // VERIFICATION: Check agent's runtime status
+        apiClient.getAgent(contextId).then(agentData => {
+          console.log(`[StrategyPage] Agent ${contextId} status:`, agentData?.data?.status);
+          
+          // Log the agent status without direct string comparison to avoid type errors
+          console.log(`[StrategyPage] AGENT STATUS: ${agentData?.data?.status} - should be "running" to respond`);
+          
+          // Just check if it's not truthy or contains 'running' string to detect issues
+          if (!agentData?.data?.status || !String(agentData?.data?.status).toLowerCase().includes('running')) {
+            console.error(`[StrategyPage] AGENT MAY NOT BE RUNNING! Status: ${agentData?.data?.status}`);
+          }
+        }).catch(error => {
+          console.error(`[StrategyPage] Error getting agent status:`, error);
+        });
+      } else {
+        console.error('[StrategyPage] Failed to get dynamic channel ID from API response', result);
+      }
+    }).catch(error => {
+      if (!isMounted) return; // Don't process errors if component unmounted
+      console.error('[StrategyPage] Error adding agent to dynamic channel:', error);
+    });
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, [address, contextId]);
 
   // Initialize conversation with Zoya when component mounts

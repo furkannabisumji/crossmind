@@ -14,8 +14,11 @@ import type { UiMessage } from "./use-query-hooks";
 import { randomUUID } from "@/lib/utils";
 import clientLogger from "@/lib/logger";
 
-// We now use dynamic channels for agent communication rather than a fixed central bus
-// This enables better isolation between user sessions and prevents cross-talk
+/**
+ * Socket.IO chat hook for handling communication with agents
+ * Uses dynamic channels for agent communication rather than a fixed central bus
+ * to enable better isolation between user sessions and prevent cross-talk
+ */
 
 interface UseSocketChatProps {
   channelId: UUID | undefined;
@@ -75,16 +78,96 @@ export function useSocketChat({
           targetUserId: contextId, // The agent ID for DM channels
         }),
       };
-
-      await socketIOManager.sendMessage(
-        text,
-        channelIdToUse,
-        serverId,
-        source,
-        attachments,
-        tempMessageId,
-        messageMetadata
-      );
+      
+      // Try both methods: REST API and Socket.IO
+      try {
+        // First, try the REST API endpoint
+        clientLogger.info(`[useSocketChat] Sending message via REST API to channel ${channelIdToUse} for agent ${contextId}`);
+        
+        // Debug current values to ensure they're defined
+        clientLogger.debug(`[useSocketChat] Payload values check: channel_id=${channelIdToUse}, server_id=${serverId}, author_id=${currentUserId}, content=${!!text}`);
+        
+        // Ensure all required fields are defined to avoid 400 errors
+        // Convert any undefined values to empty strings to prevent missing field errors
+        const safeChannelId = channelIdToUse || "";
+        const safeServerId = serverId || "00000000-0000-0000-0000-000000000000";
+        const safeContent = text || "";
+        
+        // API compatibility: Backend validation requires agent ID for author_id field
+        // Enhanced metadata preserves actual user attribution information
+        const enhancedMetadata = {
+          ...messageMetadata,
+          actualAuthorId: currentUserId, // Actual message creator
+          isUserMessage: true,           // Attribution flag
+          sendTime: Date.now(),          // Timestamp for message ordering/deduplication
+        };
+        
+        // Construct payload matching ElizaOS backend API requirements
+        const restPayload = {
+          channel_id: safeChannelId,
+          server_id: safeServerId,
+          author_id: contextId,         // Agent ID required by backend validation
+          content: safeContent,
+          source_type: "user",          // Source attribution for UI rendering
+          raw_message: JSON.stringify({
+            text: safeContent,
+            attachments: attachments || [],
+            tempId: tempMessageId || `temp-${Date.now()}`,
+            metadata: enhancedMetadata,
+          }),
+          // Keep these for backward compatibility
+          message: safeContent,
+          channelId: safeChannelId,
+          agentId: contextId || "",
+        };
+        
+        // Log request payload for diagnostic purposes
+        clientLogger.debug(`[useSocketChat] REST request payload:`, JSON.stringify(restPayload));
+        
+        // Make the REST API call
+        const response = await fetch('/api/messaging/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(restPayload)
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          clientLogger.info(`[useSocketChat] Message sent via REST API successfully:`, result);
+        } else {
+          const errorText = await response.text();
+          clientLogger.warn(`[useSocketChat] REST API message send failed (${response.status}): ${errorText}`);
+          
+          // Attempt alternative transport method on REST failure
+          clientLogger.info(`[useSocketChat] Initiating Socket.IO transport fallback`);
+          await socketIOManager.sendMessage(
+            text,
+            channelIdToUse,
+            serverId,
+            source,
+            attachments,
+            tempMessageId,
+            messageMetadata
+          );
+        }
+      } catch (error) {
+        clientLogger.error(`[useSocketChat] Error sending message:`, error);
+        
+        // Last-resort message delivery attempt via WebSocket
+        try {
+          await socketIOManager.sendMessage(
+            text,
+            channelIdToUse,
+            serverId,
+            source,
+            attachments,
+            tempMessageId,
+            messageMetadata
+          );
+        } catch (socketError) {
+          clientLogger.error(`[useSocketChat] Socket.IO fallback also failed:`, socketError);
+        }
+      }
     },
     [channelId, socketIOManager, chatType, contextId]
   );
@@ -95,18 +178,46 @@ export function useSocketChat({
         "[useSocketChat] Received raw messageBroadcast data:",
         JSON.stringify(data)
       );
+      
+      // Extract diagnostic message properties for monitoring
+      try {
+        const messageDetails = {
+          id: data.id || 'undefined',
+          senderId: data.senderId || 'undefined',
+          senderName: data.senderName || 'undefined',
+          channelId: data.channelId || 'undefined',
+          roomId: data.roomId || 'undefined',
+          createdAt: data.createdAt || 'undefined',
+          textPreview: data.text ? (data.text.length > 50 ? data.text.substring(0, 50) + '...' : data.text) : 'undefined',
+          source: data.source || 'undefined'
+        };
+        clientLogger.debug(`[useSocketChat] Message details:`, messageDetails);
+      } catch (error) {
+        clientLogger.error(`[useSocketChat] Error logging message details:`, error);
+      }
+      
       const msgChannelId = data.channelId || data.roomId;
 
-      // Accept messages only from the active channel
-      // With dynamic channels, we no longer need to monitor the central bus
-      const fromActiveChannel = msgChannelId === channelId;
-      
-      // If this message isn't for our channel, ignore it
-      if (!fromActiveChannel) {
-        clientLogger.warn(
-          `[useSocketChat] Message IGNORED - from channel ${msgChannelId}, but we're subscribed to ${channelId}`
+      // Channel-based message filtering
+      // During initialization: accept all messages to prevent missed communications
+      // Post-initialization: filter to only active channel
+      if (!channelId) {
+        clientLogger.info(
+          `[useSocketChat] Accepting initialization-phase message from channel ${msgChannelId}. ` +
+          `senderId: ${data.senderId}, senderName: ${data.senderName}, source: ${data.source}`
         );
-        return;
+      } else {
+        // Channel validation for established sessions
+        const fromActiveChannel = msgChannelId === channelId;
+        
+        // Reject messages from inactive channels
+        if (!fromActiveChannel) {
+          clientLogger.warn(
+            `[useSocketChat] Filtering out-of-scope message - target: ${msgChannelId}, active: ${channelId}. ` +
+            `senderId: ${data.senderId}, senderName: ${data.senderName}, source: ${data.source}`
+          );
+          return;
+        }
       }
       
       clientLogger.info(
@@ -141,12 +252,29 @@ export function useSocketChat({
         });
       } else {
         // Add new message to the list
+        // Determine if this is from an agent using multiple signals
+        const isFromAgent = (
+          // Primary check: Different sender ID from current user
+          data.senderId !== currentUserId || 
+          // Secondary checks to handle conflicting metadata
+          data.senderName === "Agent" ||
+          (contextId && data.senderId === contextId)
+        );
+        
+        // Log detailed message classification for debugging
+        clientLogger.info(
+          `[useSocketChat] Message classification - isFromAgent: ${isFromAgent}, ` +
+          `senderId: ${data.senderId}, currentUserId: ${currentUserId}, ` +
+          `senderName: ${data.senderName}, source: ${data.source}`
+        );
+        
         const newMessage: UiMessage = {
           id: data.id || randomUUID(),
           text: data.text || "",
           isLoading: false,
           senderId: (data.senderId || randomUUID()) as UUID,
-          name: "user",
+          // Use senderName if available, or set based on agent status
+          name: data.senderName || (isFromAgent ? "Agent" : "user"),
           channelId: (msgChannelId ||
             channelId ||
             randomUUID()) as UUID,
@@ -157,8 +285,19 @@ export function useSocketChat({
               ? Date.parse(data.createdAt)
               : Date.now(),
           attachments: data.attachments || [],
-          isAgent: data.senderId !== currentUserId,
+          isAgent: isFromAgent,
         };
+        
+        // Always log the full message being added
+        clientLogger.info(`[useSocketChat] Adding message to UI:`, {
+          id: newMessage.id,
+          text: newMessage.text ? 
+              (newMessage.text.substring(0, 30) + (newMessage.text.length > 30 ? '...' : '')) : 
+              '[empty]',
+          isAgent: newMessage.isAgent,
+          name: newMessage.name,
+          senderId: newMessage.senderId
+        });
 
         onAddMessage(newMessage);
       }
@@ -243,7 +382,89 @@ export function useSocketChat({
     onInputDisabledChange,
   ]);
 
+  // This ref tracks whether we've seen a valid channelId before
+  const hadValidChannelIdRef = useRef<boolean>(false);
+
+  // Channel transition state tracking for subscription management
+  const prevChannelIdRef = useRef<string | null | undefined>(null);
+  
+  /**
+   * Channel subscription management
+   * Establishes and maintains connection to specified message channel when available
+   */
   useEffect(() => {
+    console.log(`[useSocketChat] Channel join effect running with channelId: ${channelId || 'undefined'}`);
+    console.log(`[useSocketChat] Previous channel ID was: ${prevChannelIdRef.current || 'undefined'}`);
+    
+    // Track if we're transitioning from undefined to defined
+    const isChannelIdBecomingDefined = prevChannelIdRef.current === undefined && channelId !== undefined;
+    if (isChannelIdBecomingDefined) {
+      console.log(`[useSocketChat] Channel ID transition: undefined → ${channelId}`);
+    }
+    
+    // Persist channel transition state
+    prevChannelIdRef.current = channelId;
+    
+    const joinChannel = async () => {
+      if (!channelId) {
+        clientLogger.warn('[useSocketChat] No channel ID available yet, waiting...');
+        return; // Skip if no channel ID
+      }
+      
+      // Log target channel for connection diagnostics
+      clientLogger.info(`[useSocketChat] Initiating channel connection: ${channelId}`);
+      
+      try {
+        // Initialize socket connection with identity information
+        socketIOManager.initialize(currentUserId);
+        
+        // Connection readiness check with timeout
+        if (!socketIOManager.isConnected()) {
+          clientLogger.info('[useSocketChat] Socket connection pending - applying connection delay');
+          // Connection establishment grace period
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        // Secondary connection verification after timeout
+        if (!socketIOManager.isConnected()) {
+          clientLogger.warn('[useSocketChat] Connection timeout exceeded - deferring to subsequent render cycle');
+          return;
+        }
+        
+        // Check if the channel is different from currently joined one
+        if (joinedChannelRef.current !== channelId) {
+          // Channel transition handling - unsubscribe from previous channel
+          if (joinedChannelRef.current && joinedChannelRef.current !== channelId && socketIOManager?.isConnected()) {
+            clientLogger.info(`[useSocketChat] Leaving previous channel: ${joinedChannelRef.current}`);
+            socketIOManager.leaveChannel(joinedChannelRef.current);
+          }
+          
+          // Join new channel
+          clientLogger.info(`[useSocketChat] Joining channel: ${channelId}`);
+          await socketIOManager.joinChannel(channelId);
+          joinedChannelRef.current = channelId;
+          clientLogger.info(`[useSocketChat] Successfully joined channel: ${channelId}`);
+        }
+      } catch (error) {
+        clientLogger.error(`[useSocketChat] Error in channel join effect:`, error);
+      }
+    };
+
+    joinChannel();
+
+    // Subscription cleanup on unmount or channel transition
+    return () => {
+      if (joinedChannelRef.current) {
+        clientLogger.info(`[useSocketChat] Terminating subscription to channel ${joinedChannelRef.current}`);
+        socketIOManager.leaveChannel(joinedChannelRef.current);
+        joinedChannelRef.current = null;
+      }
+    };
+  }, [channelId, currentUserId, socketIOManager]);
+
+  // Set up event subscriptions
+  useEffect(() => {
+    
     if (!currentUserId) {
       clientLogger.info(
         `[useSocketChat] useEffect: No currentUserId available, skipping initialization`
@@ -252,43 +473,39 @@ export function useSocketChat({
     }
 
     clientLogger.info(`[useSocketChat] Initializing with userId: ${currentUserId}, channelId: ${channelId || 'undefined'}`);
+    console.log(`[useSocketChat] EFFECT RUNNING - Initialize socket connection: userID=${currentUserId}, channelId=${channelId || 'undefined'}`);
     socketIOManager.initialize(currentUserId); // Initialize on user context
 
-    // With dynamic channels, we no longer need to join the central bus
-    // Each user session has its own dedicated channel for agent communication
+    // Track transition from undefined to defined channelId (dynamic channel creation completed)
+    if (channelId && !hadValidChannelIdRef.current) {
+      clientLogger.info(`[useSocketChat] IMPORTANT: First valid channelId detected: ${channelId}`);
+      hadValidChannelIdRef.current = true;
+    }
 
-    if (!channelId) {
-      // If channelId becomes undefined (e.g., navigating away), ensure we reset the ref
-      if (joinedChannelRef.current) {
-        clientLogger.info(
-          `[useSocketChat] useEffect: channelId is now null/undefined, resetting joinedChannelRef from ${joinedChannelRef.current}`
+    // Log ALL incoming messages for debugging
+    socketIOManager.evtMessageBroadcast.attach(
+      () => true, // No filtering - catch everything
+      (data: MessageBroadcastData) => {
+        const msgChannelId = data.channelId || data.roomId;
+        clientLogger.warn(
+          `[useSocketChat] DEBUG: RAW MESSAGE, channelId=${msgChannelId}, our channelId=${channelId}, ` +
+          `senderId=${data.senderId}, text=${data.text?.substring(0, 50)}...`
         );
-        joinedChannelRef.current = null;
       }
-      clientLogger.warn('[useSocketChat] No channelId provided - SKIPPING channel join and event subscriptions');
-      return;
-    }
-
-    // Only join the specific channel if it hasn't been joined by this hook instance yet,
-    // or if the channelId has changed
-    if (channelId !== joinedChannelRef.current) {
-      clientLogger.info(
-        `[useSocketChat] useEffect: Joining channel ${channelId}. Previous joinedChannelRef: ${joinedChannelRef.current}`
-      );
-      socketIOManager.joinChannel(channelId);
-      joinedChannelRef.current = channelId; // Mark this channelId as joined by this instance
-    } else {
-      clientLogger.info(
-        `[useSocketChat] useEffect: Channel ${channelId} already marked as joined by this instance. Skipping joinChannel call.`
-      );
-    }
-
+    );
+    
     // Only accept messages from the active channel
     // With dynamic channels, we no longer need to monitor the central bus
     const msgSub = socketIOManager.evtMessageBroadcast.attach(
       (d: MessageBroadcastData) => {
         const msgChannel = d.channelId || d.roomId;
-        return msgChannel === channelId;
+        const matches = msgChannel === channelId;
+        if (!matches) {
+          clientLogger.warn(`[useSocketChat] Message FILTERED OUT - from channel ${msgChannel}, we want ${channelId}`);
+        } else {
+          clientLogger.info(`[useSocketChat] Message ACCEPTED - from channel ${msgChannel}`);
+        }
+        return matches;
       },
       eventHandlers.handleMessageBroadcasting
     );
@@ -319,6 +536,13 @@ export function useSocketChat({
       eventHandlers.handleChannelDeleted
     );
 
+    // Helper function for detaching subscriptions
+    const detachSubscriptions = (
+      subscriptions: Array<{ detach: () => void } | undefined>
+    ) => {
+      subscriptions.forEach((sub) => sub?.detach());
+    };
+    
     return () => {
       // Leave the specific channel but DON'T leave the central bus channel
       // since other components might still need it
@@ -344,12 +568,6 @@ export function useSocketChat({
         deletedSub,
       ]);
     };
-
-    function detachSubscriptions(
-      subscriptions: Array<{ detach: () => void } | undefined>
-    ) {
-      subscriptions.forEach((sub) => sub?.detach());
-    }
   }, [channelId, currentUserId, socketIOManager, contextId, chatType]);
 
   return {
