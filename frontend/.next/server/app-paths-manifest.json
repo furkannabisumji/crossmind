@@ -1,11 +1,11 @@
 {
-  "/api/add-agent-to-channel/route": "app/api/add-agent-to-channel/route.js",
   "/api/create-agent-channel/route": "app/api/create-agent-channel/route.js",
+  "/api/add-agent-to-channel/route": "app/api/add-agent-to-channel/route.js",
   "/api/messaging/central-channels/[channelId]/agents/route": "app/api/messaging/central-channels/[channelId]/agents/route.js",
   "/_not-found/page": "app/_not-found/page.js",
   "/page": "app/page.js",
   "/dashboard/deposit/page": "app/dashboard/deposit/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
   "/dashboard/strategy/page": "app/dashboard/strategy/page.js",
-  "/dashboard/settings/page": "app/dashboard/settings/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/dashboard/settings/page": "app/dashboard/settings/page.js"
 }

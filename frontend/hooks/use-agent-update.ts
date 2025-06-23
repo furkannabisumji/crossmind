@@ -13,7 +13,7 @@ import { useCallback, useRef } from "react";
 export function useAgentUpdate(initialAgent: Agent) {
   // Keep reference to the initial state for comparison
   const initialAgentRef = useRef<Agent>(
-    JSON.parse(JSON.stringify(initialAgent)),
+    JSON.parse(JSON.stringify(initialAgent))
   );
 
   const {
@@ -57,7 +57,7 @@ export function useAgentUpdate(initialAgent: Agent) {
         }
       });
     },
-    [agent.settings, updateField, updateSettings],
+    [agent.settings, updateField, updateSettings]
   );
 
   // ==================== Basic Info Tab ====================
@@ -71,7 +71,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     <T>(path: string, value: T) => {
       updateField(`settings.${path}`, value);
     },
-    [updateField],
+    [updateField]
   );
 
   /**
@@ -83,7 +83,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (settings: any) => {
       updateSettings(settings);
     },
-    [updateSettings],
+    [updateSettings]
   );
 
   /**
@@ -95,7 +95,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (systemPrompt: string) => {
       updateField("system", systemPrompt);
     },
-    [updateField],
+    [updateField]
   );
 
   // ==================== Secrets Tab ====================
@@ -112,7 +112,7 @@ export function useAgentUpdate(initialAgent: Agent) {
       const currentSecrets = currentSettings.secrets || {};
 
       // Ensure currentSecrets is definitively an object type before spreading
-      const safeSecrets = currentSecrets || {};
+      const safeSecrets = (currentSecrets || {}) as Record<string, string>;
       const newSecrets = {
         ...safeSecrets,
         [key]: value,
@@ -124,7 +124,7 @@ export function useAgentUpdate(initialAgent: Agent) {
         secrets: newSecrets,
       });
     },
-    [agent.settings, updateSettings],
+    [agent.settings, updateSettings]
   );
 
   /**
@@ -136,7 +136,9 @@ export function useAgentUpdate(initialAgent: Agent) {
     (key: string) => {
       // Get the current secrets object
       const currentSettings = agent.settings || {};
-      const currentSecrets = currentSettings.secrets || {};
+      const currentSecrets = (currentSettings.secrets && typeof currentSettings.secrets === 'object') 
+        ? currentSettings.secrets 
+        : {};
 
       // Create a new secrets object without the removed key
       const newSecrets = { ...currentSecrets };
@@ -151,7 +153,7 @@ export function useAgentUpdate(initialAgent: Agent) {
       // Use updateSettings instead of updateField for better change detection
       updateSettings(updatedSettings);
     },
-    [agent.settings, updateSettings],
+    [agent.settings, updateSettings]
   );
 
   // ==================== Content Tab ====================
@@ -165,7 +167,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (arrayName: "bio" | "topics" | "adjectives", item: string) => {
       addArrayItem(arrayName, item);
     },
-    [addArrayItem],
+    [addArrayItem]
   );
 
   /**
@@ -178,7 +180,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (arrayName: "bio" | "topics" | "adjectives", index: number) => {
       removeArrayItem(arrayName, index);
     },
-    [removeArrayItem],
+    [removeArrayItem]
   );
 
   /**
@@ -192,11 +194,11 @@ export function useAgentUpdate(initialAgent: Agent) {
     (
       arrayName: "bio" | "topics" | "adjectives",
       index: number,
-      value: string,
+      value: string
     ) => {
       updateField(`${arrayName}.${index}`, value);
     },
-    [updateField],
+    [updateField]
   );
 
   // ==================== Style Tab ====================
@@ -210,7 +212,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (styleType: "all" | "chat" | "post", rule: string) => {
       addArrayItem(`style.${styleType}`, rule);
     },
-    [addArrayItem],
+    [addArrayItem]
   );
 
   /**
@@ -223,7 +225,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (styleType: "all" | "chat" | "post", index: number) => {
       removeArrayItem(`style.${styleType}`, index);
     },
-    [removeArrayItem],
+    [removeArrayItem]
   );
 
   /**
@@ -237,7 +239,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (styleType: "all" | "chat" | "post", index: number, value: string) => {
       updateField(`style.${styleType}.${index}`, value);
     },
-    [updateField],
+    [updateField]
   );
 
   /**
@@ -250,7 +252,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (styleType: "all" | "chat" | "post", values: string[]) => {
       updateField(`style.${styleType}`, values);
     },
-    [updateField],
+    [updateField]
   );
 
   // ==================== Plugins Tab ====================
@@ -263,7 +265,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (pluginId: string) => {
       addArrayItem("plugins", pluginId);
     },
-    [addArrayItem],
+    [addArrayItem]
   );
 
   /**
@@ -275,7 +277,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (index: number) => {
       removeArrayItem("plugins", index);
     },
-    [removeArrayItem],
+    [removeArrayItem]
   );
 
   /**
@@ -287,7 +289,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (plugins: string[]) => {
       updateField("plugins", plugins);
     },
-    [updateField],
+    [updateField]
   );
 
   // ==================== Avatar Tab ====================
@@ -300,7 +302,7 @@ export function useAgentUpdate(initialAgent: Agent) {
     (avatarUrl: string) => {
       updateSetting("avatar", avatarUrl);
     },
-    [updateSetting],
+    [updateSetting]
   );
 
   /**
@@ -384,7 +386,11 @@ export function useAgentUpdate(initialAgent: Agent) {
 
         // Find added or modified secrets
         Object.entries(currentSecrets).forEach(([key, value]) => {
-          if (initialSecrets[key] !== value) {
+          if (
+            typeof initialSecrets === "object" &&
+            initialSecrets !== null &&
+            initialSecrets[key] !== value
+          ) {
             changedSecrets[key] = value;
             hasSecretChanges = true;
           }
@@ -392,6 +398,7 @@ export function useAgentUpdate(initialAgent: Agent) {
 
         // Find deleted secrets (null values indicate deletion)
         Object.keys(initialSecrets).forEach((key) => {
+          // @ts-ignore
           if (currentSecrets[key] === undefined) {
             changedSecrets[key] = null;
             hasSecretChanges = true;
