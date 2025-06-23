@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
-import { WagmiProvider, createConfig } from 'wagmi';
+import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { config } from '@/lib/wagmi-config';
 import { useTheme } from 'next-themes';

@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useWallet } from "@/components/wallet-provider";
+import { useAccount } from "wagmi";
+import type { UiMessage } from "@/hooks/use-query-hooks";
+import { ChannelType, UUID } from "@elizaos/core";
+import { apiClient } from "@/lib/api";
+
+// Use UiMessage directly since it already has all required fields
+type Message = UiMessage;
 import { WalletConnectionWrapper } from "@/components/shared/wallet-connection-wrapper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,47 +20,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Slider } from "@/components/ui/slider";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Brain,
-  ArrowRight,
-  ChevronRight,
-  PlusCircle,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
+
+import { Brain, ArrowRight, Loader2 } from "lucide-react";
 import { useTokenApproval } from "@/hooks/use-token-approval";
 import { useVault } from "@/hooks/use-vault";
-import { useZoyaStrategy } from "@/hooks/use-zoya-strategy";
-import { ErrorBoundary } from "@/components/error-boundary";
-
-// Chain options for multi-chain investment
-const chainOptions = [
-  { id: 1, name: "Ethereum" },
-  { id: 137, name: "Polygon" },
-  { id: 43114, name: "Avalanche" },
-  { id: 42161, name: "Arbitrum" },
-  { id: 10, name: "Optimism" },
-  { id: 56, name: "BNB Chain" },
-];
+import { useSocketChat } from "@/hooks/use-socket-chat";
 
 export default function StrategyPage() {
   // UI state
@@ -63,7 +33,9 @@ export default function StrategyPage() {
   const [currentStep, setCurrentStep] = useState<
     "deposit" | "generate" | "approve" | "execute"
   >("deposit");
-  const [riskLevel, setRiskLevel] = useState<"Low" | "Medium" | "High" | "">("");
+  const [riskLevel, setRiskLevel] = useState<"Low" | "Medium" | "High" | "">(
+    ""
+  );
   const [selectedToken, setSelectedToken] = useState<string>("usdc");
   const [userInput, setUserInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -75,48 +47,180 @@ export default function StrategyPage() {
   const [isExecuting, setIsExecuting] = useState(false);
 
   // Wallet hooks
-  const { isConnected, account: address } = useWallet();
+  const { isConnected, address } = useAccount();
   const { checkAllowance, approveTokens: approveToken } = useTokenApproval();
   const { deposit } = useVault();
 
   // Use our Zoya strategy hook that integrates with the CrossMind API
-  const {
-    isGenerating,
-    isLoading,
-    strategy: generatedStrategy,
+  const contextId = "2e7fded5-6c90-0786-93e9-40e713a5e19d"; // Zoya agent id
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isInputDisabled, setIsInputDisabled] = useState(false);
+
+  // State to hold the dynamic channel ID created for this session
+  const [dynamicChannelId, setDynamicChannelId] = useState<UUID | undefined>();
+
+  // Always call hook unconditionally to avoid React hooks order error
+  const socketChat = useSocketChat({
+    // Use empty string as fallback for channelId to ensure hook is always called
+    channelId: dynamicChannelId || "" as UUID,
+    currentUserId: address || "00000000-0000-0000-0000-000000000000",
+    contextId: "2e7fded5-6c90-0786-93e9-40e713a5e19d" as const,
+    chatType: ChannelType.DM,
+    allAgents: [],
     messages,
-    generateStrategy,
-    registerStrategy,
-    executeStrategy,
-    sendMessage,
-  } = useZoyaStrategy();
+    onAddMessage: (message: UiMessage) => {
+      const newMessage: Message = {
+        ...message,
+        content: message.content || "",
+        isAgent: message.isAgent || false,
+        id: message.id,
+        channelId: message.channelId,
+        senderId: message.senderId,
+      };
+      setMessages((prev) => [...prev, newMessage]);
+    },
+    onUpdateMessage: (messageId: string, updates: Partial<Message>) =>
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, ...updates } : msg
+        )
+      ),
+    onDeleteMessage: (messageId: string) =>
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId)),
+    onClearMessages: () => setMessages([]),
+    onInputDisabledChange: (disabled: boolean) => setIsInputDisabled(disabled),
+  });
+
+  const { sendMessage } = socketChat || {};
 
   // Hydration handling
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // Use messages from state for rendering
+  const displayMessages = messages;
+
+  // Render a single message
+  const renderMessage = (message: Message, idx: number) => {
+    const isUser = !message.isAgent;
+    const content =
+      "content" in message
+        ? String(message.content)
+        : "text" in message
+        ? String(message.text)
+        : "";
+    const messageId = "id" in message ? String(message.id) : `msg-${idx}`;
+    const isLoading =
+      "isLoading" in message ? Boolean(message.isLoading) : false;
+    const error = "error" in message ? String(message.error) : undefined;
+
+    return (
+      <div
+        key={messageId}
+        className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}
+      >
+        <div
+          className={`max-w-[80%] rounded-lg px-4 py-2 ${
+            isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+          }`}
+        >
+          <p className="text-sm">{content}</p>
+          {isLoading && (
+            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full w-1/2 animate-pulse bg-primary/50"></div>
+            </div>
+          )}
+          {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+        </div>
+      </div>
+    );
+  };
+
+  // Render messages
+  const renderMessages = () => {
+    if (displayMessages.length === 0) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
+          <p>Start a conversation with Zoya to generate a strategy</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        {displayMessages.map((message, idx) => renderMessage(message, idx))}
+      </div>
+    );
+  };
+
+  // Ensure agent is added to a dynamic channel before chat starts
+  useEffect(() => {
+    if (address && contextId) {
+      apiClient
+        .addAgentToDynamicChannel(contextId)
+        .then((result) => {
+          if (result?.data?.channelId) {
+            console.log(
+              `Agent added to dynamic channel: ${result.data.channelId}`
+            );
+            // Update the channel ID state to trigger useSocketChat to connect
+            setDynamicChannelId(result.data.channelId);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to add agent to channel", err);
+        });
+    }
+  }, [address, contextId]);
+
   // Initialize conversation with Zoya when component mounts
   useEffect(() => {
-    if (mounted && isConnected && address) {
+    if (mounted && isConnected && address && dynamicChannelId && sendMessage) {
       // Initialize conversation with Zoya when component mounts
-      if (!messages.length) {
+      if (displayMessages.length === 0) {
+        const serverId = "00000000-0000-0000-0000-000000000000" as const;
+        const message =
+          "Hi Zoya! I'm interested in creating an investment strategy.";
+
         sendMessage(
-          "Hi Zoya! I'm interested in creating an investment strategy."
+          message,
+          serverId,
+          "user",
+          undefined,
+          `temp-${Date.now()}`,
+          {
+            channel_id: dynamicChannelId,
+            server_id: serverId,
+            author_id: address,
+            content: message,
+            source_type: "user",
+            raw_message: message,
+          },
+          dynamicChannelId // Use the dynamic channel ID for the message
         );
       }
     }
-  }, [mounted, isConnected, address, messages.length, sendMessage]);
+  }, [
+    mounted,
+    isConnected,
+    address,
+    displayMessages.length,
+    sendMessage,
+    dynamicChannelId,
+  ]);
 
   // Scroll chat to bottom whenever messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [displayMessages]);
+
+  // if (!mounted) return null;
 
   // Handle deposit and move to strategy generation
   const handleDeposit = async () => {
-    if (!depositAmount || parseFloat(depositAmount) <= 0) return;
+    if (!depositAmount || parseFloat(depositAmount) <= 0 || !dynamicChannelId) return;
 
     try {
       // First check and approve tokens if needed
@@ -133,121 +237,218 @@ export default function StrategyPage() {
       setCurrentStep("generate");
 
       // Send message to Zoya about successful deposit
-      sendMessage(
-        `I've deposited ${depositAmount} USDC. I'd like a ${riskLevel} risk strategy. Can you help me create one?`
-      );
+      // Define channel and server IDs with proper UUID format
+     
+      const serverId =
+        "00000000-0000-0000-0000-000000000000" as `${string}-${string}-${string}-${string}-${string}`;
+      const message = `I've deposited ${depositAmount} USDC. I'd like a ${riskLevel} risk strategy. Can you help me create one?`;
+      // Generate a UUID v4 compliant ID
+      const generateUuid =
+        (): `${string}-${string}-${string}-${string}-${string}` => {
+          return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+            /[xy]/g,
+            (c) => {
+              const r = (Math.random() * 16) | 0;
+              const v = c === "x" ? r : (r & 0x3) | 0x8;
+              return v.toString(16);
+            }
+          ) as `${string}-${string}-${string}-${string}-${string}`;
+        };
+
+      const tempId = generateUuid();
+
+      // Convert address to UUID format if it's an Ethereum address
+      const getSenderId = (
+        addr: string | undefined
+      ): `${string}-${string}-${string}-${string}-${string}` => {
+        if (!addr) return "00000000-0000-0000-0000-000000000000";
+        if (addr.startsWith("0x")) {
+          // Convert first 32 chars of hash to UUID format
+          const hash = addr.slice(2).padEnd(32, "0");
+          return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(
+            12,
+            16
+          )}-${hash.slice(16, 20)}-${hash.slice(20, 32)}` as const;
+        }
+        return addr as `${string}-${string}-${string}-${string}-${string}`;
+      };
+
+      const senderId = getSenderId(address);
+
+      // Add the message to the UI immediately
+      // Create message with proper typing
+      const userMessage: Message = {
+        id: tempId as `${string}-${string}-${string}-${string}-${string}`,
+        content: message,
+        isAgent: false,
+        name: "You",
+        senderId: senderId,
+        channelId: dynamicChannelId,
+        serverId: serverId,
+        createdAt: Date.now(),
+        isLoading: true,
+      };
+
+      setMessages((prev) => [...prev, userMessage]);
+
+      // Send the message via socket
+      if (sendMessage) {
+        sendMessage(
+          message,
+          serverId,
+          "user",
+          undefined,
+          tempId,
+          {
+            channel_id: dynamicChannelId,
+            server_id: serverId,
+            author_id: senderId,
+            content: message,
+            source_type: "user",
+            raw_message: message,
+          },
+          dynamicChannelId
+        ).catch((error) => {
+          console.error("Error sending deposit message:", error);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? { ...msg, error: "Failed to send message", isLoading: false }
+                : msg
+            )
+          );
+        });
+      }
     } catch (error: unknown) {
       console.error("Deposit error:", error);
       if (error instanceof Error) {
-        sendMessage(`I'm having trouble with my deposit. Error: ${error.message}`);
+        handleSendErrorMessage(error);
       } else {
-        sendMessage("I'm having trouble with my deposit. Unknown error.");
+        handleUnknownError();
       }
     }
   };
 
-  // Handle user message submission
-  const handleSendMessage = async () => {
-    if (!userInput.trim()) return;
+  // Handle error message sending
+  const handleSendErrorMessage = (error: Error) => {
+    const serverId = "00000000-0000-0000-0000-000000000000" as const;
+    const errorMessage = `I'm having trouble with my deposit. Error: ${error.message}`;
 
-    // Send user message using the hook's method
-    await sendMessage(userInput);
+    if (address && dynamicChannelId && sendMessage) {
+      sendMessage(
+        errorMessage,
+        serverId,
+        "user",
+        undefined,
+        `temp-${Date.now()}`,
+        {
+          channel_id: dynamicChannelId,
+          server_id: serverId,
+          author_id: address,
+          content: errorMessage,
+          source_type: "user",
+          raw_message: errorMessage,
+        },
+        dynamicChannelId
+      );
+    }
+  };
+
+  // Handle unknown error
+  const handleUnknownError = () => {
+    const serverId = "00000000-0000-0000-0000-000000000000" as const;
+    const errorMessage = "I'm having trouble with my deposit. Unknown error.";
+
+    if (address && dynamicChannelId && sendMessage) {
+      sendMessage(
+        errorMessage,
+        serverId,
+        "user",
+        undefined,
+        `temp-${Date.now()}`,
+        {
+          channel_id: dynamicChannelId,
+          server_id: serverId,
+          author_id: address,
+          content: errorMessage,
+          source_type: "user",
+          raw_message: errorMessage,
+        },
+        dynamicChannelId
+      );
+    }
+  };
+
+  // Handle sending messages
+  const handleSendMessage = async () => {
+    if (!userInput.trim() || !address || !dynamicChannelId || !sendMessage)
+      return;
+
+    // Create a temporary message ID in UUID format
+    const tempId = `00000000-0000-0000-0000-${Date.now()
+      .toString()
+      .padStart(12, "0")}` as const;
+    const serverId = "00000000-0000-0000-0000-000000000000" as const;
+    const senderId = (
+      address.startsWith("0x")
+        ? `00000000-0000-0000-0000-${address.slice(2).padStart(12, "0")}`
+        : address
+    ) as `${string}-${string}-${string}-${string}-${string}`;
+
+    // Add the message to the UI immediately
+    const userMessage: Message = {
+      id: tempId,
+      content: userInput,
+      isAgent: false,
+      name: "You",
+      senderId: senderId,
+      channelId: dynamicChannelId,
+      serverId: serverId,
+      createdAt: Date.now(),
+      isLoading: true,
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
     setUserInput("");
 
-    // If we're in generate step, check if user is requesting strategy generation
-    if (
-      currentStep === "generate" &&
-      (userInput.toLowerCase().includes("generate") ||
-        userInput.toLowerCase().includes("create") ||
-        userInput.toLowerCase().includes("strategy"))
-    ) {
-      handleGenerateStrategy();
-    }
-  };
-
-  // Generate investment strategy using the Zoya hook
-  const handleGenerateStrategy = async () => {
-    if (!depositAmount || parseFloat(depositAmount) <= 0) {
-      alert("Please deposit funds first");
-      return;
-    }
-    
-    if (!riskLevel) {
-      alert("Please select a risk level");
-      return;
-    }
-
     try {
-      // Use the hook's generateStrategy method with our parameters
-      await generateStrategy(
-        parseFloat(depositAmount),
-        riskLevel as "Low" | "Medium" | "High"
-        // Optionally pass preferred chains
-        // chainOptions.map(chain => chain.id)
-      );
+      // Send the message via socket
+      await sendMessage(
+        userInput,
+        serverId,
+        "user",
+        undefined,
+        tempId,
+        {
+          channel_id: dynamicChannelId,
+          server_id: serverId,
+          author_id: senderId,
+          content: userInput,
+          source_type: "user",
+          raw_message: userInput,
+        },
+        dynamicChannelId
+      ); // Pass the dynamicChannelId as override
 
-      // Move to approve step once strategy is generated
-      setCurrentStep("approve");
-    } catch (error: unknown) {
-      console.error("Strategy generation error:", error);
-      if (error instanceof Error) {
-        sendMessage(`I'm having trouble generating a strategy. Error: ${error.message}`);
-      } else {
-        sendMessage("I'm having trouble generating a strategy. Unknown error.");
+      // If we're in generate step, check if user is requesting strategy generation
+      if (
+        currentStep === "generate" &&
+        (userInput.toLowerCase().includes("generate") ||
+          userInput.toLowerCase().includes("create") ||
+          userInput.toLowerCase().includes("strategy"))
+      ) {
+        // handleGenerateStrategy();
       }
-    }
-  };
-
-  // Handle strategy approval using the hook
-  const handleApproveStrategy = async () => {
-    if (!generatedStrategy) return;
-
-    try {
-      setIsApproving(true);
-      // Use the hook's registerStrategy method
-      await registerStrategy(generatedStrategy);
-
-      // Move to execute step after registration
-      setCurrentStep("execute");
-
-      // Send message to confirm registration
-      sendMessage(
-        "I'd like to execute this strategy now. Please proceed with execution."
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Update the message to show error state
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? { ...msg, error: "Failed to send message", isLoading: false }
+            : msg
+        )
       );
-    } catch (error: unknown) {
-      console.error("Strategy registration error:", error);
-      if (error instanceof Error) {
-        sendMessage(`I'm having trouble registering the strategy. Error: ${error.message}`);
-      } else {
-        sendMessage("I'm having trouble registering the strategy. Unknown error.");
-      }
-    } finally {
-      setIsApproving(false);
-    }
-  };
-
-  // Handle strategy execution using the hook
-  const handleExecuteStrategy = async () => {
-    if (!generatedStrategy) return;
-
-    try {
-      setIsExecuting(true);
-      // Use the hook's executeStrategy method
-      await executeStrategy(generatedStrategy);
-
-      // Send message to confirm execution
-      sendMessage(
-        "Great! Thanks for executing my strategy. How can I monitor it?"
-      );
-    } catch (error: unknown) {
-      console.error("Strategy execution error:", error);
-      if (error instanceof Error) {
-        sendMessage(`I'm having trouble executing the strategy. Error: ${error.message}`);
-      } else {
-        sendMessage("I'm having trouble executing the strategy. Unknown error.");
-      }
-    } finally {
-      setIsExecuting(false);
     }
   };
 
@@ -271,116 +472,61 @@ export default function StrategyPage() {
   // Handle risk level change
   const handleRiskChange = (level: "Low" | "Medium" | "High") => {
     setRiskLevel(level);
-    if (currentStep === "generate") {
+    if (
+      currentStep === "generate" &&
+      address &&
+      dynamicChannelId &&
+      sendMessage
+    ) {
+      const serverId = "00000000-0000-0000-0000-000000000000" as const;
+      const tempId = `temp-${Date.now()}`;
       sendMessage(
-        `I'd like to adjust my risk profile to ${level} for my investment strategy.`
+        `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
+        serverId,
+        "user",
+        undefined,
+        tempId,
+        {
+          channel_id: dynamicChannelId,
+          server_id: serverId,
+          author_id: address,
+          content: `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
+          source_type: "user",
+          raw_message: `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
+        },
+        dynamicChannelId
       );
     }
   };
 
-  // Render strategy card
-  const renderStrategyCard = () => {
-    if (!generatedStrategy) return null;
-
+  // Render the chat interface with Zoya
+  function renderZoyaChat() {
     return (
-      <Card className="border-primary/20 mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            {generatedStrategy.name}
-            <span className="text-sm font-normal px-3 py-1 rounded-full bg-primary/10 text-primary">
-              {generatedStrategy.status === "pending" && "Pending Approval"}
-              {generatedStrategy.status === "registered" && "Approved"}
-              {generatedStrategy.status === "executed" && "Executed"}
-              {generatedStrategy.status === "rejected" && "Rejected"}
-              {generatedStrategy.status === "exited" && "Exited"}
-            </span>
-          </CardTitle>
-          <CardDescription className="flex items-center justify-between">
-            <span>Estimated APY: {generatedStrategy.estimatedAPY}%</span>
-            <span>Risk Level: {generatedStrategy.riskLevel}</span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-semibold mb-2">Chain Distribution</h4>
-              <div className="space-y-2">
-                {generatedStrategy.chains.map((chain) => (
-                  <div key={chain.chainId}>
-                    <div className="flex justify-between items-center text-sm">
-                      <span>{chain.name}</span>
-                      <span>{chain.percentage}%</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-secondary mt-1">
-                      <div
-                        className="h-2 rounded-full bg-primary"
-                        style={{ width: `${chain.percentage}%` }}
-                      />
-                    </div>
-                    <div className="pl-4 mt-2 space-y-1">
-                      {chain.protocols.map((protocol, idx) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center text-xs text-muted-foreground"
-                        >
-                          <span>{protocol.name}</span>
-                          <span>{protocol.percentage}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2">
+          <Brain className="h-5 w-5 text-primary" />
+          <div>
+            <CardTitle>Zoya - AI Strategy Advisor</CardTitle>
+            <CardDescription>
+              Ask Zoya to generate an investment strategy
+            </CardDescription>
           </div>
-        </CardContent>
-        <CardFooter className="flex justify-end gap-2">
-          {generatedStrategy.status === "pending" && (
-            <>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  sendMessage("I don't want to proceed with this strategy.")
-                }
-              >
-                Decline
-              </Button>
-              <Button onClick={handleApproveStrategy} disabled={isApproving}>
-                {isApproving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Approving
-                  </>
-                ) : (
-                  "Approve Strategy"
-                )}
-              </Button>
-            </>
-          )}
-          {generatedStrategy.status === "registered" && (
-            <Button onClick={handleExecuteStrategy} disabled={isExecuting}>
-              {isExecuting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Executing
-                </>
-              ) : (
-                "Execute Strategy"
-              )}
-            </Button>
-          )}
-          {generatedStrategy.status === "executed" && (
-            <Button
-              variant="outline"
-              onClick={() => (window.location.href = "/dashboard/portfolio")}
-            >
-              View in Portfolio
-            </Button>
-          )}
+        </CardHeader>
+        <CardContent className="space-y-4">{renderMessages()}</CardContent>
+        <CardFooter>
+          <div className="flex w-full gap-2">
+            <Input
+              placeholder="Ask Zoya about investment strategies..."
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+            />
+            <Button onClick={handleSendMessage}>Send</Button>
+          </div>
         </CardFooter>
       </Card>
     );
-  };
+  }
 
   // Render the deposit step
   const renderDepositStep = () => (
@@ -447,7 +593,10 @@ export default function StrategyPage() {
           <Button
             onClick={handleDeposit}
             disabled={
-              !depositAmount || parseFloat(depositAmount) <= 0 || !riskLevel || isDepositing
+              !depositAmount ||
+              parseFloat(depositAmount) <= 0 ||
+              !riskLevel ||
+              isDepositing
             }
             className="w-full mt-4"
           >
@@ -466,75 +615,6 @@ export default function StrategyPage() {
       </Card>
     </div>
   );
-
-  // Render chat messages
-  function renderMessages() {
-    return (
-      <ScrollArea className="h-[320px] pr-4">
-        <div className="space-y-4">
-          {messages.map((message, idx) => (
-            <div
-              key={idx}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              <div
-                className={`max-w-[80%] px-4 py-2 rounded-lg ${
-                  message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
-                }`}
-              >
-                {message.content}
-              </div>
-            </div>
-          ))}
-          {isGenerating && (
-            <div className="flex justify-start">
-              <div className="max-w-[80%] px-4 py-2 rounded-lg bg-muted flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Generating strategy...
-              </div>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-    );
-  }
-
-  // Render the chat interface with Zoya
-  function renderZoyaChat() {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2">
-          <Brain className="h-5 w-5 text-primary" />
-          <div>
-            <CardTitle>Zoya - AI Strategy Advisor</CardTitle>
-            <CardDescription>
-              Ask Zoya to generate an investment strategy
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {renderMessages()}
-
-          {generatedStrategy && renderStrategyCard()}
-        </CardContent>
-        <CardFooter>
-          <div className="flex w-full gap-2">
-            <Input
-              placeholder="Ask Zoya about investment strategies..."
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-            />
-            <Button onClick={handleSendMessage}>Send</Button>
-          </div>
-        </CardFooter>
-      </Card>
-    );
-  }
 
   // Render main content based on current step
   function renderContent() {
