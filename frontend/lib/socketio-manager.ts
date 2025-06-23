@@ -143,7 +143,7 @@ class EventAdapter {
 export class SocketIOManager extends EventAdapter {
   private static instance: SocketIOManager | null = null;
   private socket: Socket | null = null;
-  private isConnected = false;
+  private _connectionState = false; // Renamed from isConnected to avoid name clash
   private connectPromise: Promise<void> | null = null;
   private resolveConnect: (() => void) | null = null;
   private activeChannelIds: Set<string> = new Set();
@@ -191,7 +191,15 @@ export class SocketIOManager extends EventAdapter {
   }
 
   public static isConnected(): boolean {
-    return SocketIOManager.instance?.isConnected || false;
+    return SocketIOManager.instance?._connectionState || false;
+  }
+
+  /**
+   * Returns whether the socket is currently connected to the server
+   * Can be called on an instance (preferred) or statically
+   */
+  public isConnected(): boolean {
+    return this._connectionState;
   }
 
   public isChannelActive(channelId: string): boolean {
@@ -236,12 +244,12 @@ export class SocketIOManager extends EventAdapter {
     });
 
     this.socket.on("connect", () => {
-      clientLogger.info("[SocketIO] Connected to server");
-      this.isConnected = true;
+      clientLogger.info(`[SocketIO] Connected to server - Socket ID: ${this.socket?.id}`);
+      this._connectionState = true;
       this.resolveConnect?.();
 
-      // Add debug listener for all incoming events
-      if (process.env.NODE_ENV === "development" && this.socket) {
+      // Add debug listener for all incoming events - enable in all environments for debugging
+      if (this.socket) {
         this.socket.onAny((event, ...args) => {
           clientLogger.debug(
             `[SocketIO DEBUG] Received event '${event}':`,
@@ -250,6 +258,9 @@ export class SocketIOManager extends EventAdapter {
         });
       }
 
+      // Log successful connection with socket ID
+      clientLogger.info(`[SocketIO] Connection established with ID: ${this.socket?.id}`);
+      
       this.emit("connect");
 
       // CRITICAL: Ensure this loop remains commented out or removed.
@@ -417,7 +428,7 @@ export class SocketIOManager extends EventAdapter {
 
     this.socket.on("disconnect", (reason) => {
       clientLogger.info(`[SocketIO] Disconnected. Reason: ${reason}`);
-      this.isConnected = false;
+      this._connectionState = false;
 
       this.emit("disconnect", reason);
 
@@ -465,6 +476,7 @@ export class SocketIOManager extends EventAdapter {
    * @param channelId Channel ID to join
    */
   public async joinChannel(channelId: string): Promise<void> {
+    console.log(`[SocketIOManager] Attempting to join channel: ${channelId}, socket exists: ${!!this.socket}, connected: ${this._connectionState}`);
     // Ensure we have a connection before trying to join
     if (this.connectPromise) {
       try {
@@ -475,7 +487,7 @@ export class SocketIOManager extends EventAdapter {
       }
     }
 
-    if (!this.socket || !this.isConnected) {
+    if (!this.socket || !this._connectionState) {
       clientLogger.warn(
         `[SocketIO] Cannot join channel ${channelId}: not connected`
       );
@@ -521,7 +533,7 @@ export class SocketIOManager extends EventAdapter {
   public leaveChannel(channelId: string): void {
     // For leaveChannel, we'll silently remove the channel from activeChannelIds even if not connected
     // This ensures cleanup happens regardless of connection state
-    if (!this.socket || !this.isConnected) {
+    if (!this.socket || !this._connectionState) {
       // Just remove from active channels without showing error
       this.activeChannelIds.delete(channelId);
       return;
@@ -573,7 +585,7 @@ export class SocketIOManager extends EventAdapter {
     }
 
     // Wait for connection if needed
-    if (!this.isConnected) {
+    if (!this._connectionState) {
       await this.connectPromise;
     }
 
@@ -584,8 +596,11 @@ export class SocketIOManager extends EventAdapter {
       `[SocketIO] Sending message to central channel ${channelId} on server ${serverId}`
     );
 
-    // Emit message to server
-    this.socket.emit("message", {
+    // Debug connection state before sending
+    clientLogger.info(`[SocketIO] Connection state before send: ${this.isConnected() ? 'CONNECTED' : 'NOT CONNECTED'}, Socket ID: ${this.socket?.id || 'none'}`);
+    
+    // Create message payload - using format 1 (complex object with type and payload)
+    const messagePayload = {
       type: SOCKET_MESSAGE_TYPE.SEND_MESSAGE,
       payload: {
         senderId: this.clientEntityId,
@@ -599,6 +614,62 @@ export class SocketIOManager extends EventAdapter {
         attachments,
         metadata,
       },
+    };
+    
+    // Alternative message payload - using format 2 (direct message properties)
+    const altMessagePayload = {
+      senderId: this.clientEntityId,
+      senderName: USER_NAME,
+      text: message, // Note: using 'text' instead of 'message' based on observed response format
+      channelId: channelId,
+      roomId: channelId,
+      serverId: serverId,
+      id: finalMessageId, // Note: using 'id' instead of 'messageId' based on observed format
+      source,
+      attachments,
+      metadata,
+    };
+    
+    // Log full payloads (for debugging)
+    clientLogger.debug(`[SocketIO] Emitting message payload (format 1):`, JSON.stringify(messagePayload));
+    clientLogger.debug(`[SocketIO] Alternative payload (format 2):`, JSON.stringify(altMessagePayload));
+    
+    // Set a timeout to detect missing acknowledgements
+    const ackTimeout = setTimeout(() => {
+      clientLogger.warn(`[SocketIO] No acknowledgement received after 5s for message ${finalMessageId}`);
+    }, 5000);
+
+    // Try alternative event names and formats
+    // First try with our standard format on 'message' event
+    this.socket.emit("message", messagePayload, (ack1: any) => {
+      clearTimeout(ackTimeout);
+      clientLogger.debug(`[SocketIO] Ack received on 'message' event (format 1):`, ack1);
+      if (ack1 && ack1.success) {
+        clientLogger.info(`[SocketIO] MESSAGE CONFIRMED SENT - messageId: ${finalMessageId}`);
+      }
+    });
+    
+    // Then try with direct payload on 'messageBroadcast' event (as server might expect this format)
+    this.socket.emit("messageBroadcast", altMessagePayload, (ack2: any) => {
+      clearTimeout(ackTimeout);
+      clientLogger.debug(`[SocketIO] Ack received on 'messageBroadcast' event:`, ack2);
+      if (ack2 && ack2.success) {
+        clientLogger.info(`[SocketIO] MESSAGE CONFIRMED SENT (format 2) - messageId: ${finalMessageId}`);
+      }
+    });
+    
+    // Also try direct format on 'message' event
+    this.socket.emit("message", altMessagePayload, (ack3: any) => {
+      clearTimeout(ackTimeout);
+      clientLogger.debug(`[SocketIO] Ack received on 'message' event (format 2):`, ack3);
+      if (ack3 && ack3.success) {
+        clientLogger.info(`[SocketIO] MESSAGE CONFIRMED SENT (format 3) - messageId: ${finalMessageId}`);
+      }
+    });
+    
+    // Send a custom event to check if any acknowledgements work at all
+    this.socket.emit("client_message_test", { test: "Testing acknowledgements", timestamp: Date.now() }, (testAck: any) => {
+      clientLogger.debug(`[SocketIO] Test ack received:`, testAck);
     });
 
     // Note: We no longer broadcast locally - the server will send the message back with the proper ID
@@ -616,7 +687,7 @@ export class SocketIOManager extends EventAdapter {
     }
 
     // Wait for connection if needed
-    if (!this.isConnected) {
+    if (!this._connectionState) {
       await this.connectPromise;
     }
 
@@ -636,7 +707,7 @@ export class SocketIOManager extends EventAdapter {
     }
 
     // Wait for connection if needed
-    if (!this.isConnected) {
+    if (!this._connectionState) {
       await this.connectPromise;
     }
 
@@ -659,7 +730,7 @@ export class SocketIOManager extends EventAdapter {
     }
 
     // Wait for connection if needed
-    if (!this.isConnected) {
+    if (!this._connectionState) {
       await this.connectPromise;
     }
 
@@ -681,7 +752,7 @@ export class SocketIOManager extends EventAdapter {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
-      this.isConnected = false;
+      this._connectionState = false;
       this.activeChannelIds.clear();
       this.logStreamSubscribed = false;
       clientLogger.info("[SocketIO] Disconnected from server");
