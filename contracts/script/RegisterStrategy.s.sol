@@ -10,12 +10,12 @@ contract RegisterStrategyScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
-        address strategyManagerAddress = 0xe8B44aC3F920156846A79Ec2A74D770Ce395Dfe1;
+        address strategyManagerAddress = 0x224AF5c393f5456E57555951e8A8f32fD27F21C2; // العنوان الصحيح من الوثيقة
         address adapterAddress = 0x3cfc9AA161e825F2878Fa8B46AaC72Ae32673FfA;
-        uint64 chainId = 43113;
+        uint64 chainId = 43113; // Avalanche Fuji
 
-        uint256 amount = 1 ether;
-        uint256 index = 0;
+        uint256 amount = 10_000_000; // 10 USDC (مع دقة 6 decimals)
+        uint256 index = 0; // الإيداع الأول
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -23,7 +23,7 @@ contract RegisterStrategyScript is Script {
             strategyManagerAddress
         );
 
-        // ----------- Adapter Deposits -----------
+        // إعداد Adapter Deposits
         StrategyManager.AdapterDeposit[]
             memory adapterDeposits = new StrategyManager.AdapterDeposit[](1);
         adapterDeposits[0] = StrategyManager.AdapterDeposit({
@@ -31,7 +31,7 @@ contract RegisterStrategyScript is Script {
             percentage: 100
         });
 
-        // ----------- Chain Deposits -----------
+        // إعداد Chain Deposits
         StrategyManager.ChainDeposit[]
             memory chainDeposits = new StrategyManager.ChainDeposit[](1);
         chainDeposits[0] = StrategyManager.ChainDeposit({
@@ -40,13 +40,13 @@ contract RegisterStrategyScript is Script {
             deposits: adapterDeposits
         });
 
-        // ----------- Strategy Setup -----------
+        // إعداد Strategy
         StrategyManager.Strategy memory strategy;
         strategy.index = index;
-        strategy.status = StrategyManager.Status.REGISTERED;
-        strategy.amount = amount;
+        strategy.amount = amount; // المبلغ بتاع الإيداع
         strategy.deposits = chainDeposits;
 
+        // تنبيه إذا كان الـ chainId أو adapter غير مسجلين (بدون تحقق مباشر)
         console.log("Registering strategy for index:", index);
         strategyManager.registerStrategy(strategy, index);
         console.log("Registered strategy for index:", index);
