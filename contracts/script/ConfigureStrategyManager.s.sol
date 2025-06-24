@@ -9,10 +9,12 @@ import "../src/StrategyManager.sol";
 contract ConfigureStrategyManagerScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address strategyManagerAddress = 0x224AF5c393f5456E57555951e8A8f32fD27F21C2;
-        uint64 chainId = 43113; // Avalanche Fuji
-        address adapterAddress = 0x3cfc9AA161e825F2878Fa8B46AaC72Ae32673FfA;
-        address receiverAddress = 0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b; // CrossChainExecutor على Avalanche Fuji
+        address strategyManagerAddress = 0x8B162A960CA4F45e219db23b90132bF6B0e56271; // Fuji StrategyManager
+        uint64 sepoliaChainId = 11155111; // Sepolia
+        uint64 fujiChainId = 43113; // Fuji
+        address adapterAddress = 0x66118D36C7eeeD2134D6De444b60d2DD2DB310FD; // Fuji AaveV3Adapter
+        address sepoliaReceiver = 0xD63dcF5091d3776D01d727b92d195cF54c10F0d2; // CrossChainExecutor on Sepolia
+        address executorAddress = 0x8c10cce8Ad744B6620c8b1300C3cbf6f5CD835eC; // New Fuji CrossChainExecutor (correct router)
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -20,13 +22,25 @@ contract ConfigureStrategyManagerScript is Script {
             strategyManagerAddress
         );
 
-        // إضافة الـ chainId مع receiver صحيح
-        strategyManager.addSupportedChainId(chainId, receiverAddress);
-        console.log("Added chainId:", uint256(chainId));
+        // Remove and re-add Sepolia chain config
+        strategyManager.removeSupportedChainId(sepoliaChainId);
+        console.log("Removed old Sepolia chainId:", uint256(sepoliaChainId));
+        strategyManager.addSupportedChainId(sepoliaChainId, sepoliaReceiver);
+        console.log("Added Sepolia chainId:", uint256(sepoliaChainId));
+        strategyManager.addProtocol(
+            sepoliaChainId,
+            "TestAdapter",
+            adapterAddress
+        );
+        console.log("Added protocol for adapter (Sepolia):", adapterAddress);
 
-        // إضافة البروتوكول
-        strategyManager.addProtocol(chainId, "TestAdapter", adapterAddress);
-        console.log("Added protocol for adapter:", adapterAddress);
+        // Remove and re-add Fuji chain config
+        strategyManager.removeSupportedChainId(fujiChainId);
+        console.log("Removed old Fuji chainId:", uint256(fujiChainId));
+        strategyManager.addSupportedChainId(fujiChainId, executorAddress);
+        console.log("Added Fuji chainId:", uint256(fujiChainId));
+        strategyManager.addProtocol(fujiChainId, "TestAdapter", adapterAddress);
+        console.log("Added protocol for adapter (Fuji):", adapterAddress);
 
         vm.stopBroadcast();
     }

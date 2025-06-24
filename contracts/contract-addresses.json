@@ -1,0 +1,16 @@
+{
+  "fuji": {
+    "CrossMindVault": "0x7A057215EAfDAa0d6d5A0FdfdebdE21794DE1b73",
+    "StrategyManager": "0xB07a95486F9B28933345Bce32396A15a38Fc43E0",
+    "CrossChainExecutor": "0xbb6868A91dE8a56565B0a290fb04648a8750d657",
+    "AdapterRegistry": "0x166972C8926F50d7124d17f959ee2FC170217b1f",
+    "AaveV3Adapter": "0x4c1E4c5378eEfdbAc9C9CD1517Df5b583F9a95B3"
+  },
+  "sepolia": {
+    "CrossMindVault": "0xfA205DB4D93006837C0CAb69095bBB7d601c82E6",
+    "StrategyManager": "0x5488BF397b074d8Efee58F315c0a2f793FCCEd75",
+    "CrossChainExecutor": "0x82DCF4603a7f24aa6633B821fFC51032Cee21063",
+    "AdapterRegistry": "0x3014A74fd44017341dD471C73e9980D156c7Bc02",
+    "AaveV3Adapter": "0xB361aB7b925c8F094F16407702d6fD275534d981"
+  }
+} 

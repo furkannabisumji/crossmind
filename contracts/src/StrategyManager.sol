@@ -169,18 +169,27 @@ contract StrategyManager is Ownable, ReentrancyGuard {
                 strategy.deposits[i],
                 balance.amount
             );
-
-            ICrossChainExecutor(executor).sendMessageOrToken(
-                strategy.deposits[i].chainId,
-                chains[strategy.deposits[i].chainId].receiver,
-                "executeStrategy",
-                index,
-                "",
-                chainAmount
-            );
+            if (strategy.deposits[i].chainId == uint64(block.chainid)) {
+                // تنفيذ محلي (بدون cross-chain)
+                strategy.status = Status.EXECUTED;
+            } else {
+                address receiver = chains[strategy.deposits[i].chainId]
+                    .receiver;
+                require(receiver != address(0), "Receiver not configured");
+                ICrossChainExecutor(executor).sendMessageOrToken(
+                    strategy.deposits[i].chainId,
+                    receiver,
+                    "executeStrategy",
+                    index,
+                    "",
+                    chainAmount
+                );
+            }
         }
 
-        strategy.status = Status.EXECUTED;
+        if (strategy.status != Status.EXECUTED) {
+            strategy.status = Status.EXECUTED;
+        }
         emit StrategyExecuted(msg.sender, strategy.amount, index, true);
     }
 

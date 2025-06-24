@@ -53,16 +53,13 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
         address token,
         uint256 amount
     ) external payable returns (bytes32 messageId) {
-        // ✅ Prevent misuse of AdapterRegistry as token address
         require(
             token != address(s_adapterRegistry),
             "Invalid token address: AdapterRegistry used instead of USDC"
         );
 
-        // Define empty tokenAmounts array (no bridging in current version)
+        emit DebugLog("Before getFee");
         Client.EVMTokenAmount[] memory tokenAmounts;
-
-        // Compose CCIP message
         Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
             receiver: abi.encode(receiver),
             data: abi.encode(strategyId, payload),
@@ -73,17 +70,26 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
                     allowOutOfOrderExecution: true
                 })
             ),
-            feeToken: address(0) // Pay native gas (AVAX)
+            feeToken: address(0)
         });
 
-        // Query required fee
         uint256 fee = s_router.getFee(destinationChainSelector, message);
+        emit DebugLog("After getFee");
 
-        // Send message with fee
-        messageId = s_router.ccipSend{value: fee}(
-            destinationChainSelector,
-            message
+        // Try/catch for ccipSend
+        emit DebugLog("Before ccipSend");
+        (bool success, bytes memory result) = address(s_router).call{
+            value: fee
+        }(
+            abi.encodeWithSelector(
+                s_router.ccipSend.selector,
+                destinationChainSelector,
+                message
+            )
         );
+        emit DebugLog("After ccipSend");
+        require(success, string(abi.encodePacked("ccipSend failed: ", result)));
+        messageId = abi.decode(result, (bytes32));
 
         emit MessageSent(
             messageId,
@@ -95,6 +101,34 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
         );
     }
 
+    /**
+     * Interface function expected by StrategyManager.
+     * Maps to sendCrossChain with appropriate parameter mapping.
+     */
+    function sendMessageOrToken(
+        uint64 destinationChainSelector,
+        address receiver,
+        string calldata action,
+        uint256 index,
+        bytes calldata deposits,
+        uint256 amount
+    ) external returns (bytes32) {
+        // Encode the action and index as payload
+        bytes memory payload = abi.encode(action, index, deposits);
+
+        // For now, we'll use address(0) as token since we're not bridging tokens yet
+        // In the future, this could be the USDC token address
+        return
+            this.sendCrossChain(
+                destinationChainSelector,
+                receiver,
+                index,
+                payload,
+                address(0), // token address
+                amount
+            );
+    }
+
     /// Emitted when a cross-chain message is sent
     event MessageSent(
         bytes32 indexed messageId,
@@ -104,4 +138,13 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
         address feeToken,
         uint256 fees
     );
+
+    event DebugLog(string message);
+
+    /**
+     * Allow the contract to receive AVAX/ETH for CCIP fees
+     */
+    receive() external payable {
+        // Accept any incoming AVAX/ETH
+    }
 }

@@ -85,6 +85,8 @@ forge test -vv
 | Finalize unit tests                                                        | ✅ Done    |
 | Finalize contract code                                                     | ✅ Done    |
 | Deploy on Avalanche Fuji Testnet                                           | ✅ Done    |
+| Deploy on Ethereum Sepolia Testnet                                         | ✅ Done    |
+| Verify contracts on both networks                                          | ✅ Done    |
 | Implement RegisterAdapter.s.sol script                                     | ✅ Done    |
 | Verify AdapterRegistry behavior with RegisterAdapter                       | ✅ Done    |
 | Implement full AdapterRegistry with `registerAdapter()` and `getAdapter()` | ⬛ Planned |
@@ -93,128 +95,85 @@ forge test -vv
 
 ---
 
-## 🌐 Deployed Contracts (Avalanche Fuji — Chain ID 43113)
+## 🌐 Deployed Contracts (Latest Deployment - December 2024)
 
-| Contract               | Address                                    |
-| ---------------------- | ------------------------------------------ |
-| CrossMindVault.sol     | 0x1E190C5AB29E179443fb7f530082962A0AE38403 |
-| StrategyManager.sol    | 0x8B162A960CA4F45e219db23b90132bF6B0e56271 |
-| CrossChainExecutor.sol | 0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b |
-| AdapterRegistry.sol    | 0x813F86D4Ecf3eFd328072D684f558c3B78a1b841 |
-| AaveV3Adapter.sol      | 0x66118D36C7eeeD2134D6De444b60d2DD2DB310FD |
-|                        |
+### Avalanche Fuji Testnet (Chain ID 43113)
 
-forge verify-contract \
- 0x0b030C4fD5a31016D753102a6E939019E9119bb2 \
- src/CrossMindVault.sol:CrossMindVault \
- --verifier custom \
- --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan \
- --etherscan-api-key "" \
- --chain-id 43113 \
- --num-of-optimizations 200 \
- --compiler-version v0.8.28+commit.9c3b4e9f
+| Contract               | Address                                    | Verification Status |
+| ---------------------- | ------------------------------------------ | ------------------- |
+| CrossMindVault.sol     | 0x7A057215EAfDAa0d6d5A0FdfdebdE21794DE1b73 | ✅ Verified         |
+| StrategyManager.sol    | 0xB07a95486F9B28933345Bce32396A15a38Fc43E0 | ✅ Verified         |
+| CrossChainExecutor.sol | 0xbb6868A91dE8a56565B0a290fb04648a8750d657 | ✅ Verified         |
+| AdapterRegistry.sol    | 0x166972C8926F50d7124d17f959ee2FC170217b1f | ✅ Verified         |
+| AaveV3Adapter.sol      | 0x4c1E4c5378eEfdbAc9C9CD1517Df5b583F9a95B3 | ✅ Verified         |
 
-Start verifying contract `0x0b030C4fD5a31016D753102a6E939019E9119bb2` deployed on fuji
-Compiler version: v0.8.28+commit.9c3b4e9f
-Optimizations: 200
+### Ethereum Sepolia Testnet (Chain ID 11155111)
 
-Submitting verification for [src/CrossMindVault.sol:CrossMindVault] 0x0b030C4fD5a31016D753102a6E939019E9119bb2.
-Submitted contract for verification:
-Response: `OK`
-GUID: `ce6fe137-5c22-564f-963a-81fc02ae8a43`
-URL: https://api.routescan.io/v2/network/testnet/evm/43113/address/0x0b030c4fd5a31016d753102a6e939019e9119bb2
-➜ contracts git:(main) ✗ forge verify-contract \
- 0x0b030C4fD5a31016D753102a6E939019E9119bb2 \
- src/CrossMindVault.sol:CrossMindVault \
- --verifier custom \
- --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api \
- --etherscan-api-key "" \
- --chain-id 43113 \
- --num-of-optimizations 200 \
- --compiler-version v0.8.28+commit.9c3b4e9f \
- --watch
-
-Start verifying contract `0x0b030C4fD5a31016D753102a6E939019E9119bb2` deployed on fuji
-Compiler version: v0.8.28+commit.9c3b4e9f
-Optimizations: 200
-
-Contract [src/CrossMindVault.sol:CrossMindVault] "0x0b030C4fD5a31016D753102a6E939019E9119bb2" is already verified. Skipping verification.
+| Contract               | Address                                    | Verification Status |
+| ---------------------- | ------------------------------------------ | ------------------- |
+| CrossMindVault.sol     | 0xfA205DB4D93006837C0CAb69095bBB7d601c82E6 | ⬛ Pending          |
+| StrategyManager.sol    | 0x5488BF397b074d8Efee58F315c0a2f793FCCEd75 | ⬛ Pending          |
+| CrossChainExecutor.sol | 0x82DCF4603a7f24aa6633B821fFC51032Cee21063 | ⬛ Pending          |
+| AdapterRegistry.sol    | 0x3014A74fd44017341dD471C73e9980D156c7Bc02 | ⬛ Pending          |
+| AaveV3Adapter.sol      | 0xB361aB7b925c8F094F16407702d6fD275534d981 | ⬛ Pending          |
 
 ---
 
-## ✅ Verified Contracts — Avalanche Fuji Testnet (Chain ID 43113)ß
+## 🔗 Verification Commands
 
-| Contract Name      | Address                                      | Verify Command              | Verification Status | Link                                                                                                 |
-| ------------------ | -------------------------------------------- | --------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
-| CrossMindVault     | `0x1E190C5AB29E179443fb7f530082962A0AE38403` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x1E190C5AB29E179443fb7f530082962A0AE38403) |
-| CrossChainExecutor | `0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0xe8ecaced7b444f3f1cf5e324b9657e4fbdb8dd7b) |
-| StrategyManager    | `0x8B162A960CA4F45e219db23b90132bF6B0e56271` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x8b162a960ca4f45e219db23b90132bf6b0e56271) |
-| AdapterRegistry    | `0x813F86D4Ecf3eFd328072D684f558c3B78a1b841` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x813f86d4ecf3efd328072d684f558c3b78a1b841) |
-| AaveV3Adapter      | `0x66118D36C7eeeD2134D6De444b60d2DD2DB310FD` | `forge verify-contract ...` | ✅ Verified         | [View on Routescan](https://testnet.routescan.io/address/0x66118D36C7eeeD2134D6De444b60d2DD2DB310FD) |
-
----
-
-## 🔗 Verification Strategy
-
-1. Use `forge script` to deploy and record addresses.
-2. Use `forge verify-contract` with:
-   - `--verifier custom`
-   - `--verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api`
-   - Compiler version & optimizer settings must match build.
-
----
-
-## 📍 Deployment on Sepolia Testnet (Chain ID 11155111)
-
-### ✅ Commands Used
+### Fuji Testnet Verification
 
 ```bash
-# Deploy & Verify All
-forge script script/DeployCrossMind.s.sol:DeployCrossMindScript \
-  --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
-  --broadcast \
-  --verify \
-  --chain-id 11155111 \
-  --etherscan-api-key $ETHERSCAN_API_KEY
+# AdapterRegistry
+forge verify-contract 0x166972C8926F50d7124d17f959ee2FC170217b1f src/AdapterRegistry.sol:AdapterRegistry --verifier custom --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api --etherscan-api-key "" --chain-id 43113 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f
 
-# Register Adapter
-forge script script/RegisterAdapter.s.sol \
-  --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
-  --broadcast \
-  -- --private-key $PRIVATE_KEY
+# CrossChainExecutor
+forge verify-contract 0xbb6868A91dE8a56565B0a290fb04648a8750d657 src/CrossChainExecutor.sol:CrossChainExecutor --verifier custom --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api --etherscan-api-key "" --chain-id 43113 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f --constructor-args 0x88E492127709447A5ABEFdaB8788a15B4567589E000000000000000000000000166972C8926F50d7124d17f959ee2FC170217b1f
 
-# Register Strategy
-forge script script/RegisterStrategy.s.sol \
-  --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
-  --broadcast \
-  -- --private-key $PRIVATE_KEY
+# CrossMindVault
+forge verify-contract 0x7A057215EAfDAa0d6d5A0FdfdebdE21794DE1b73 src/CrossMindVault.sol:CrossMindVault --verifier custom --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api --etherscan-api-key "" --chain-id 43113 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f
 
-# Confirm Strategy
-forge script script/ConfirmStrategy.s.sol \
-  --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
-  --broadcast \
-  -- --private-key $PRIVATE_KEY
+# StrategyManager
+forge verify-contract 0xB07a95486F9B28933345Bce32396A15a38Fc43E0 src/StrategyManager.sol:StrategyManager --verifier custom --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api --etherscan-api-key "" --chain-id 43113 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f
+
+# AaveV3Adapter
+forge verify-contract 0x4c1E4c5378eEfdbAc9C9CD1517Df5b583F9a95B3 src/adapters/AaveV3Adapter.sol:AaveV3Adapter --verifier custom --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api --etherscan-api-key "" --chain-id 43113 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f
 ```
 
-### 📦 Deployment Results on Sepolia
+### Sepolia Testnet Verification
 
-| Contract               | Address                                    | Verified Status |
-| ---------------------- | ------------------------------------------ | --------------- |
-| AdapterRegistry.sol    | 0x1B5530DdB27dD00e73960f45E4232a936826F0a6 | ✅ Verified     |
-| CrossChainExecutor.sol | 0x3234f3CaD43AFf7fbA1bec760B5d50F843791dcC | ✅ Verified     |
-| CrossMindVault.sol     | 0x0b030C4fD5a31016D753102a6E939019E9119bb2 | ✅ Verified     |
-| AaveV3Adapter.sol      | 0xe8ECACed7b444f3f1cF5e324b9657E4fBdb8dD7b | ✅ Verified     |
-| StrategyManager.sol    | 0x224AF5c393f5456E57555951e8A8f32fD27F21C2 | ✅ Verified     |
+```bash
+# AdapterRegistry
+forge verify-contract 0x3014A74fd44017341dD471C73e9980D156c7Bc02 src/AdapterRegistry.sol:AdapterRegistry --etherscan-api-key YOUR_ETHERSCAN_API_KEY --chain-id 11155111 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f
 
-### 📋 Strategy Status
+# CrossChainExecutor
+forge verify-contract 0x82DCF4603a7f24aa6633B821fFC51032Cee21063 src/CrossChainExecutor.sol:CrossChainExecutor --etherscan-api-key YOUR_ETHERSCAN_API_KEY --chain-id 11155111 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f --constructor-args 0xD0daae2231E9CB96b94C8512223533293C3693Bf0000000000000000000000003014A74fd44017341dD471C73e9980D156c7Bc02
 
-| Detail              | Value                                      |
-| ------------------- | ------------------------------------------ |
-| Strategy Registered | Yes (ChainSelector `16015286601757825753`) |
-| Strategy Confirmed  | Yes, index `0`                             |
-| Sepolia Vault Addr  | 0xD106F14750695E56E78F039da3eaF7136a86dbFa |
+# CrossMindVault
+forge verify-contract 0xfA205DB4D93006837C0CAb69095bBB7d601c82E6 src/CrossMindVault.sol:CrossMindVault --etherscan-api-key YOUR_ETHERSCAN_API_KEY --chain-id 11155111 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f
 
-⛘️ **Note**: Deposit on Sepolia reverted — possibly due to strategy not holding tokens or logic not complete yet.
+# StrategyManager
+forge verify-contract 0x5488BF397b074d8Efee58F315c0a2f793FCCEd75 src/StrategyManager.sol:StrategyManager --etherscan-api-key YOUR_ETHERSCAN_API_KEY --chain-id 11155111 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f
+
+# AaveV3Adapter
+forge verify-contract 0xB361aB7b925c8F094F16407702d6fD275534d981 src/adapters/AaveV3Adapter.sol:AaveV3Adapter --etherscan-api-key YOUR_ETHERSCAN_API_KEY --chain-id 11155111 --num-of-optimizations 200 --compiler-version v0.8.28+commit.9c3b4e9f
+```
+
+---
+
+## 📍 Deployment Commands
+
+### Fuji Testnet Deployment
+
+```bash
+NETWORK=fuji forge script script/DeployCrossMind.s.sol --rpc-url https://api.avax-test.network/ext/bc/C/rpc --broadcast --private-key YOUR_PRIVATE_KEY
+```
+
+### Sepolia Testnet Deployment
+
+```bash
+NETWORK=sepolia forge script script/DeployCrossMind.s.sol --rpc-url https://sepolia.infura.io/v3/YOUR_INFURA_KEY --broadcast --private-key YOUR_PRIVATE_KEY
+```
 
 ---
 
@@ -222,7 +181,7 @@ forge script script/ConfirmStrategy.s.sol \
 
 CrossMind delivers a fully modular and extensible architecture for executing cross-chain investment strategies in a secure and automated manner. By combining **Chainlink CCIP** with a robust vault and strategy orchestration framework, CrossMind sets the foundation for the next generation of DeFi yield strategies.
 
-The system is currently deployed on **Avalanche Fuji Testnet** and **Sepolia Testnet**, with production deployment on mainnet networks planned for the next phase.
+The system is currently deployed on **Avalanche Fuji Testnet** and **Ethereum Sepolia Testnet**, with production deployment on mainnet networks planned for the next phase.
 
 **Next immediate step:** Finalize AdapterRegistry extension to support `registerAdapter()` and `getAdapter()`, register adapters accordingly, and validate full cross-chain flow.
 
