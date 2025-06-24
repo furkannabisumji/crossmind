@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
+import "../lib/forge-std/src/console2.sol";
 
 interface ICrossMindVault {
     function deposit(uint256 amount, uint8 risk) external;
@@ -26,7 +27,13 @@ contract DepositToVaultScript is Script {
 
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
-        address vault = 0x0b030C4fD5a31016D753102a6E939019E9119bb2; // العنوان الصحيح
+        address vault = 0xfA205DB4D93006837C0CAb69095bBB7d601c82E6; // العنوان الصحيح من contract-addresses.json
+
+        // Print vault and depositor addresses for debugging
+        console2.log("Vault address used for deposit:");
+        console2.logAddress(vault);
+        console2.log("Depositor address:");
+        console2.logAddress(tx.origin);
 
         vm.startBroadcast(privateKey);
 
@@ -62,6 +69,11 @@ contract DepositToVaultScript is Script {
             revert("Token approval failed");
         }
         emit Log("Approved successfully");
+
+        console2.log("Vault address used for deposit:");
+        console2.logAddress(vault);
+        console2.log("Depositor address:");
+        console2.logAddress(msg.sender);
 
         // تنفيذ الإيداع
         vaultContract.deposit(amount, risk);

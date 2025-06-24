@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
+import "../lib/forge-std/src/Script.sol";
+import "../lib/forge-std/src/console.sol";
 
 import "../src/StrategyManager.sol";
 
 contract ConfigureSepoliaStrategyManagerScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address strategyManagerAddress = 0x224AF5c393f5456E57555951e8A8f32fD27F21C2; // Sepolia StrategyManager
-        uint64 fujiChainId = 43113; // Fuji
-        address newFujiExecutor = 0x8c10cce8Ad744B6620c8b1300C3cbf6f5CD835eC; // New Fuji CrossChainExecutor (correct router)
+        uint64 sepoliaChainId = 11155111; // Sepolia
+        address strategyManagerAddress = 0x5488BF397b074d8Efee58F315c0a2f793FCCEd75; // Sepolia StrategyManager
+        address sepoliaReceiver = 0x82DCF4603a7f24aa6633B821fFC51032Cee21063; // CrossChainExecutor on Sepolia
+        address aaveV3Adapter = 0xB361aB7b925c8F094F16407702d6fD275534d981; // AAVEV3Adapter on Sepolia
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -19,14 +20,11 @@ contract ConfigureSepoliaStrategyManagerScript is Script {
             strategyManagerAddress
         );
 
-        // Update Fuji chain config with new CrossChainExecutor address
-        strategyManager.removeSupportedChainId(fujiChainId);
-        console.log("Removed old Fuji chainId:", uint256(fujiChainId));
-        strategyManager.addSupportedChainId(fujiChainId, newFujiExecutor);
-        console.log(
-            "Added Fuji chainId with new executor:",
-            uint256(fujiChainId)
-        );
+        // Remove Fuji-related configuration, only add Sepolia chain
+        // strategyManager.addSupportedChainId(sepoliaChainId, sepoliaReceiver);
+        // console.log("Added Sepolia chainId:", uint256(sepoliaChainId));
+        strategyManager.addProtocol(sepoliaChainId, "AAVEV3", aaveV3Adapter);
+        console.log("Added protocol for adapter (Sepolia):", aaveV3Adapter);
 
         vm.stopBroadcast();
     }

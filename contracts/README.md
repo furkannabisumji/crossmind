@@ -177,6 +177,46 @@ NETWORK=sepolia forge script script/DeployCrossMind.s.sol --rpc-url https://sepo
 
 ---
 
+## 🛠️ Post-Deployment Configuration (Sepolia Example)
+
+After deploying contracts, you must configure the StrategyManager with supported chains and adapters:
+
+```bash
+# 1. Add Sepolia as a supported chain and register the AAVEV3 adapter
+forge script script/ConfigureSepoliaStrategyManager.s.sol:ConfigureSepoliaStrategyManagerScript --rpc-url https://sepolia.infura.io/v3/YOUR_INFURA_KEY --broadcast --private-key YOUR_PRIVATE_KEY
+```
+
+- Make sure the addresses in your scripts match those in `contract-addresses.json`.
+- Always deposit USDC to the correct CrossMindVault address before registering a strategy.
+
+---
+
+## 🔄 Strategy Lifecycle Example (Sepolia)
+
+1. **Deposit to Vault**
+   ```bash
+   forge script script/DepositToVault.s.sol:DepositToVaultScript --rpc-url https://sepolia.infura.io/v3/YOUR_INFURA_KEY --broadcast --private-key YOUR_PRIVATE_KEY
+   ```
+
+2. **Register Strategy**
+   ```bash
+   forge script script/ConfirmStrategy.s.sol:ConfirmStrategyScript --rpc-url https://sepolia.infura.io/v3/YOUR_INFURA_KEY --broadcast --private-key YOUR_PRIVATE_KEY
+   ```
+
+3. **(Optional) Confirm/Execute/Exit Strategy**
+   - Add scripts or use contract calls as needed.
+
+---
+
+## ⚠️ Common Issues & Troubleshooting
+
+- **No vault balance for user:** Make sure you deposit USDC to the correct vault before registering a strategy.
+- **Unsupported chain ID:** Ensure you have added the chain as supported in StrategyManager.
+- **Adapter not registered:** Register the adapter as a protocol for the target chain in StrategyManager.
+- **Insufficient token balance:** Make sure your wallet has enough USDC on Sepolia.
+
+---
+
 ## 📚 Conclusion
 
 CrossMind delivers a fully modular and extensible architecture for executing cross-chain investment strategies in a secure and automated manner. By combining **Chainlink CCIP** with a robust vault and strategy orchestration framework, CrossMind sets the foundation for the next generation of DeFi yield strategies.
