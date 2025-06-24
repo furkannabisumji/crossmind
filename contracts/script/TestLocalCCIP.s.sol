@@ -65,14 +65,11 @@ contract TestLocalCCIPScript is Script {
                 amount
             )
         returns (bytes32 messageId) {
-            console.log(
-                "✅ Local CCIP test successful! Message ID:",
-                messageId
-            );
+            console.logBytes32(messageId);
         } catch Error(string memory reason) {
-            console.log("❌ Local CCIP test failed with reason:", reason);
+            console.log(reason);
         } catch (bytes memory lowLevelData) {
-            console.log("❌ Local CCIP test failed with low level data");
+            // Optionally log low level data if needed
         }
 
         vm.stopBroadcast();

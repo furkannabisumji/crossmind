@@ -41,9 +41,15 @@ contract SendCrossChainMessageScript is Script {
         uint256 fee = IRouterClient(routerAddr).getFee(dstSelector, message);
 
         vm.startBroadcast();
-        bytes32 messageId = CrossChainExecutor(executorAddr).sendCrossChain{
-            value: fee
-        }(dstSelector, receiver, strategyId, payload, token, amount);
+        bytes32 messageId = CrossChainExecutor(payable(executorAddr))
+            .sendCrossChain{value: fee}(
+            dstSelector,
+            receiver,
+            strategyId,
+            payload,
+            token,
+            amount
+        );
         emit SentMessageId(messageId);
         vm.stopBroadcast();
     }
