@@ -35,7 +35,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .next
-
+pnpm-lock.yaml
 
 .DS_Store
 zoya/.eliza/.elizadb/

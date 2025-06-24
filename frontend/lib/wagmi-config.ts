@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
 import { http, createConfig } from "wagmi";
-import { avalancheFuji } from "wagmi/chains";
+import { avalancheFuji, sepolia } from "wagmi/chains";
 import { getDefaultWallets } from "@rainbow-me/rainbowkit";
 import { Chain } from "wagmi/chains";
 
 // Only using Avalanche Fuji testnet
-const chains = [avalancheFuji] as [Chain, ...Chain[]];
+const chains = [avalancheFuji, sepolia] as [Chain, ...Chain[]];
 
 // Get WalletConnect project ID from environment variables
 const projectId =
@@ -15,13 +15,14 @@ const projectId =
 // Configure RainbowKit wallets
 const { connectors } = getDefaultWallets({
   appName: "CrossMind Portfolio Dashboard",
-  projectId
+  projectId,
 });
 
 // Create transport for Avalanche Fuji testnet
 const transports = {
   // Avalanche Fuji testnet chain ID: 43113
   [avalancheFuji.id]: http(),
+  [sepolia.id]: http(),
 };
 
 // Create the Wagmi config
