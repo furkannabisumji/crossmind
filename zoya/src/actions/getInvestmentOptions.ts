@@ -1,100 +1,8 @@
 import { Action, IAgentRuntime, Memory, State, HandlerCallback, logger } from "@elizaos/core";
 import { ethers } from "ethers";
+import { strategyManagerABI } from "../abis";
 
-// ABI fragment for the StrategyManager contract to get available chains and protocols
-const strategyManagerABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "chainProtocols",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "name",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "adapter",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "name": "chains",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "receiver",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "chainId",
-        "type": "uint64"
-      },
-      {
-        "internalType": "address",
-        "name": "adapter",
-        "type": "address"
-      }
-    ],
-    "name": "isProtocol",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "chainId",
-        "type": "uint64"
-      }
-    ],
-    "name": "isSupportedChainId",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-];
+
 
 /**
  * Interface for chain information
@@ -220,6 +128,48 @@ const getInvestmentOptionsAction: Action = {
         },
       },
     ],
+    [
+      {
+        name: '{{name1}}',
+        content: { text: 'Show me available adapters' },
+      },
+      {
+        name: '{{name2}}',
+        content: {
+          text: 'Available protocol adapters across all supported chains: \n• Avalanche Fuji: AAVE, TraderJoe, USDC\n• Ethereum Sepolia: USDC, Compound\n• Polygon: QuickSwap, Uniswap\n\nEach adapter connects to different DeFi protocols with unique risk/reward profiles.',
+          thought: 'Listed all available protocol adapters by chain',
+          actions: ['GET_INVESTMENT_OPTIONS'],
+        },
+      },
+    ],
+    [
+      {
+        name: '{{name1}}',
+        content: { text: 'Which protocols have the highest yield?' },
+      },
+      {
+        name: '{{name2}}',
+        content: {
+          text: 'High-yield protocols available in CrossMind: GMX on Arbitrum (15.8% APY), QuickSwap on Polygon (12.3% APY), and Camelot on Arbitrum (11.4% APY). Remember: higher yields typically come with increased risk.',
+          thought: 'Highlighted high-yield investment opportunities with risk disclaimer',
+          actions: ['GET_INVESTMENT_OPTIONS'],
+        },
+      },
+    ],
+    [
+      {
+        name: '{{name1}}',
+        content: { text: 'What are the safest investment options?' },
+      },
+      {
+        name: '{{name2}}',
+        content: {
+          text: 'Conservative, low-risk options include: USDC on multiple chains (2.1% APY), AAVE on Avalanche (5.2% APY), and Compound on Ethereum (4.8% APY). These protocols prioritize capital preservation with steady, predictable returns.',
+          thought: 'Recommended low-risk investment protocols for conservative users',
+          actions: ['GET_INVESTMENT_OPTIONS'],
+        },
+      },
+    ],
   ],
 };
 
@@ -239,74 +189,61 @@ async function getInvestmentOptionsFromChain(runtime: IAgentRuntime): Promise<{
     }
     
     // Get the provider from the runtime or environment
-    const provider = await getProvider(runtime);
-    if (!provider) {
-      return { success: false, message: 'Provider not available or not connected' };
-    }
+    const provider = new ethers.JsonRpcProvider(process.env.EVM_PROVIDER_URL);
     
     // Create contract instance (read-only since we're just querying)
     const contract = new ethers.Contract(contractAddress, strategyManagerABI, provider);
     
-    // Get supported chains (this is a simplified approach - in a real implementation, 
-    // you would need to query for all possible chain IDs or have a predefined list)
+    // Get all supported chains directly from the contract
+    const allChains = await contract.getAllChains();
     const supportedChains: Chain[] = [];
     
-    // List of common chain IDs to check
-    const chainIdsToCheck = [
-      1, 10, 56, 137, 42161, 43114, // Mainnets
-      5, 80001, 43113, 421613, 11155111 // Testnets
-    ];
-    
-    for (const chainId of chainIdsToCheck) {
+    for (const chainId of allChains) {
       try {
-        // Check if the chain is supported
-        const isSupported = await contract.isSupportedChainId(chainId);
         
-        if (isSupported) {
-          // Get the chain receiver address
-          const chainData = await contract.chains(chainId);
-          
-          // Create a new chain object
-          const chain: Chain = {
-            chainId,
-            name: chainNames[chainId] || `Chain ${chainId}`,
-            receiver: chainData.receiver,
-            protocols: []
-          };
-          
-          // Get protocols for this chain (simplified approach)
-          // In a real implementation, you would need to know how many protocols are available
-          // or use events to get this information
-          let protocolIndex = 0;
-          while (true) {
-            try {
-              const protocol = await contract.chainProtocols(chainId, protocolIndex);
-              
-              // If we got a valid protocol, add it to the list
-              if (protocol.name && protocol.adapter !== ethers.ZeroAddress) {
-                chain.protocols.push({
-                  name: protocol.name,
-                  adapter: protocol.adapter
-                });
-              }
-              
-              protocolIndex++;
-            } catch (error) {
-              // Reached the end of the protocols list or encountered an error
-              break;
+        
+        // Get protocols for this chain using the new function
+        const protocols = await contract.getAllProtocolsByChain(chainId);
+        
+        // Create a new chain object
+        const chain: Chain = {
+          chainId: chainId,
+          name: chainNames[chainId] || `Chain ${chainId}`,
+          receiver: '', // We'll get this if needed
+          protocols: []
+        };
+        
+        // Get protocol details
+        let protocolIndex = 0;
+        while (protocolIndex < protocols.length) {
+          try {
+            const protocol = await contract.chainProtocols(chainId);
+            
+            // If we got a valid protocol, add it to the list
+            if (protocol.name && protocol.adapter !== ethers.ZeroAddress) {
+              chain.protocols.push({
+                name: protocol.name,
+                adapter: protocol.adapter
+              });
             }
+            
+            protocolIndex++;
+          } catch (error) {
+            // Reached the end of the protocols list or encountered an error
+            break;
           }
-          
-          // Add the chain to the list if it has protocols
-          if (chain.protocols.length > 0) {
-            supportedChains.push(chain);
-          }
+        }
+        
+        // Add the chain to the list if it has protocols
+        if (chain.protocols.length > 0) {
+          supportedChains.push(chain);
         }
       } catch (error) {
         // Skip this chain ID if there was an error
-        logger.error(`Error checking chain ${chainId}:`, error);
+        logger.error(`Error processing chain ${chainId}:`, error);
       }
     }
+    logger.info('Supported chains:', supportedChains);
     
     return {
       success: true,

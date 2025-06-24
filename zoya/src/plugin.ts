@@ -2,6 +2,7 @@ import type { Plugin } from '@elizaos/core';
 import getBalanceAction from './actions/getBalance';
 import getInvestmentOptionsAction from './actions/getInvestmentOptions';
 import registerStrategyAction from './actions/registerStrategy';
+import getBestStrategyAction from './actions/getBestStrategy';
 import {
   type Action,
   type Content,
@@ -158,7 +159,7 @@ const plugin: Plugin = {
     ],
   },
   services: [StarterService],
-  actions: [getBalanceAction, getInvestmentOptionsAction, registerStrategyAction],
+  actions: [getBalanceAction, getInvestmentOptionsAction, registerStrategyAction, getBestStrategyAction],
   providers: [],
 };
 

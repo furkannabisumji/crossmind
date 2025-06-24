@@ -1,64 +1,6 @@
 import { Action, IAgentRuntime, Memory, State, HandlerCallback, logger } from "@elizaos/core";
 import { ethers } from "ethers";
-
-// ABI fragment for the getBalance function
-const vaultABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getBalance",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "amount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "enum CrossMindVault.Risk",
-            "name": "risk",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bool",
-            "name": "locked",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct CrossMindVault.Balance[]",
-        "name": "",
-        "type": "tuple[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "balanceOf",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "total",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-];
+import { vaultABI } from "../abis";
 
 /**
  * Represents the risk level of a balance in the CrossMindVault contract
@@ -179,8 +121,50 @@ const getBalanceAction: Action = {
       {
         name: '{{name2}}',
         content: {
-          text: 'Your total balance is 1,000 USDC. You have 3 separate deposits: 500 USDC (Low Risk, Unlocked), 300 USDC (Medium Risk, Locked), and 200 USDC (High Risk, Unlocked).',
+          text: 'Your total balance is 1,000.00 USDC. You have 3 active deposits: 500.00 USDC (Low Risk, Unlocked), 300.00 USDC (Medium Risk, Locked), and 200.00 USDC (High Risk, Unlocked).',
           thought: 'Retrieved user balance information from the contract',
+          actions: ['GET_BALANCE'],
+        },
+      },
+    ],
+    [
+      {
+        name: '{{name1}}',
+        content: { text: 'Check my vault balance' },
+      },
+      {
+        name: '{{name2}}',
+        content: {
+          text: 'Your total balance is 2,500.00 USDC. You have 2 active deposits: 1,500.00 USDC (Medium Risk, Unlocked) and 1,000.00 USDC (Low Risk, Locked).',
+          thought: 'Successfully retrieved balance with multiple deposits',
+          actions: ['GET_BALANCE'],
+        },
+      },
+    ],
+    [
+      {
+        name: '{{name1}}',
+        content: { text: 'Show me my CrossMind balance' },
+      },
+      {
+        name: '{{name2}}',
+        content: {
+          text: 'Your total balance is 0.00 USDC. You don\'t have any active deposits.',
+          thought: 'User has no balance in the vault',
+          actions: ['GET_BALANCE'],
+        },
+      },
+    ],
+    [
+      {
+        name: '{{name1}}',
+        content: { text: 'How much do I have invested?' },
+      },
+      {
+        name: '{{name2}}',
+        content: {
+          text: 'Your total balance is 750.00 USDC. You have 1 active deposit: 750.00 USDC (High Risk, Unlocked) and 2 empty deposits.',
+          thought: 'Retrieved balance showing active and empty deposits',
           actions: ['GET_BALANCE'],
         },
       },
@@ -189,31 +173,47 @@ const getBalanceAction: Action = {
 };
 
 /**
- * Extract user address from the message or state
+ * Extract user address from the message or state with persistent memory
  */
 async function extractUserAddress(runtime: IAgentRuntime, message: Memory, state?: State): Promise<string | null> {
-  // This is a placeholder implementation
-  // In a real application, you would extract this data from the user message or a form
-  
-  const text = message.content.text?.toLowerCase() || '';
-  
-  // Check if the message contains an Ethereum address
-  const addressRegex = /0x[a-fA-F0-9]{40}/;
-  const match = text.match(addressRegex);
-  
-  if (match) {
-    return match[0];
+  try {
+    const text = message.content.text || '';
+    
+    // First, check if there's an Ethereum address in the current message
+    const addressRegex = /0x[a-fA-F0-9]{40}/;
+    const match = text.match(addressRegex);
+    
+    if (match) {
+      // Found address in message - store it in state for future use
+      if (state) {
+        state.userAddress = match[0];
+      }
+      logger.info(`Extracted and stored user address: ${match[0]}`);
+      return match[0];
+    }
+    
+    // Check if address is stored in current state
+    if (state?.userAddress) {
+      logger.info(`Retrieved user address from state: ${state.userAddress}`);
+      return state.userAddress as string;
+    }
+    
+    // Check if there's a stored user profile or character settings
+    if (runtime.character?.settings?.walletAddress) {
+      const address = runtime.character.settings.walletAddress as string;
+      if (state) {
+        state.userAddress = address;
+      }
+      return address;
+    }
+    
+    // If no address found anywhere, return null to prompt user for address
+    logger.warn('No user address found - user needs to provide wallet address');
+    return null;
+  } catch (error) {
+    logger.error('Error extracting user address:', error);
+    return null;
   }
-  
-  // If no address in the message, try to get it from state or user profile
-  // This is just a placeholder - in a real app you'd implement proper user authentication
-  if (state?.user?.address) {
-    return state.user.address;
-  }
-  
-  // For demo purposes, return a test address
-  // In production, you would require the user to provide their address or connect their wallet
-  return '0x1234567890123456789012345678901234567890';
 }
 
 /**
@@ -226,50 +226,40 @@ async function getUserBalanceFromChain(runtime: IAgentRuntime, userAddress: stri
 }> {
   try {
     // Get the contract address from environment or configuration
-    /*const contractAddress = process.env.VAULT_CONTRACT_ADDRESS;
+    const contractAddress = process.env.VAULT_CONTRACT_ADDRESS;
     if (!contractAddress) {
       return { success: false, message: 'Vault contract address not configured' };
     }
     
     // Get the provider from the runtime or environment
-    const provider = await getProvider(runtime);
-    if (!provider) {
-      return { success: false, message: 'Provider not available or not connected' };
-    }
+    const provider = new ethers.JsonRpcProvider(process.env.EVM_PROVIDER_URL);
     
     // Create contract instance (read-only since we're just querying)
     const contract = new ethers.Contract(contractAddress, vaultABI, provider);
     
     // Call the getBalance function to get detailed balance info
     const balances = await contract.getBalance(userAddress);
+    console.log('Raw balances from contract:', balances);
     
-    // Call the balanceOf function to get total balance
-    const totalBalance = await contract.balanceOf(userAddress);
+    // Format the balance data - convert from wei to USDC immediately
+    const formattedBalances = balances.map((balance: any) => {
+      // Convert from wei to USDC (6 decimals)
+      const amountInUsdc = ethers.formatUnits(balance.amount, 6);
+      
+      return {
+        amount: amountInUsdc, // Store as USDC string, not wei
+        risk: Number(balance.risk),
+        locked: balance.locked
+      };
+    });
     
-    // Format the balance data
-    const formattedBalances = balances.map((balance: any) => ({
-      amount: balance.amount.toString(),
-      risk: Number(balance.risk),
-      locked: balance.locked
-    }));*/
-    const formattedBalances = [
-      {
-        amount: '1000',
-        risk: RiskLevel.LOW,
-        locked: false
-      },
-      {
-        amount: '500',
-        risk: RiskLevel.MEDIUM,
-        locked: true
-      },
-      {
-        amount: '200',
-        risk: RiskLevel.HIGH,
-        locked: false
-      }
-    ];
-    const totalBalance = '1700';
+    // Calculate total balance correctly (sum of USDC amounts)
+    const totalBalance = formattedBalances.reduce((total: number, balance: any) => {
+      return total + parseFloat(balance.amount);
+    }, 0);
+    
+    console.log('Formatted balances:', formattedBalances);
+    console.log('Total balance:', totalBalance);
     
     return {
       success: true,
@@ -292,9 +282,9 @@ async function getUserBalanceFromChain(runtime: IAgentRuntime, userAddress: stri
  * Format the balance data into a human-readable response
  */
 function formatBalanceResponse(balanceData: UserBalance): string {
-  // Convert wei to USDC (assuming 6 decimals for USDC)
-  const formatAmount = (amountInWei: string): string => {
-    const amount = Number(amountInWei) / 1_000_000; // 6 decimals for USDC
+  // Format USDC amounts (amounts are already in USDC, not wei)
+  const formatAmount = (amountInUsdc: string): string => {
+    const amount = parseFloat(amountInUsdc);
     return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
   
@@ -306,8 +296,14 @@ function formatBalanceResponse(balanceData: UserBalance): string {
     return `Your total balance is ${totalBalanceFormatted} USDC. You don't have any active deposits.`;
   }
   
-  // Format the individual balances
-  const balanceDetails = balanceData.balances.map((balance, index) => {
+  // Filter out zero balances and format the individual balances
+  const nonZeroBalances = balanceData.balances.filter(balance => parseFloat(balance.amount) > 0);
+  
+  if (nonZeroBalances.length === 0) {
+    return `Your total balance is ${totalBalanceFormatted} USDC. All your deposits are currently zero.`;
+  }
+  
+  const balanceDetails = nonZeroBalances.map((balance, index) => {
     const amountFormatted = formatAmount(balance.amount);
     const riskLevel = ['Low', 'Medium', 'High'][balance.risk] || 'Unknown';
     const lockStatus = balance.locked ? 'Locked' : 'Unlocked';
@@ -315,25 +311,11 @@ function formatBalanceResponse(balanceData: UserBalance): string {
     return `${amountFormatted} USDC (${riskLevel} Risk, ${lockStatus})`;
   }).join(', ');
   
-  return `Your total balance is ${totalBalanceFormatted} USDC. You have ${balanceData.balances.length} ${balanceData.balances.length === 1 ? 'deposit' : 'deposits'}: ${balanceDetails}.`;
+  const zeroBalanceCount = balanceData.balances.length - nonZeroBalances.length;
+  const zeroBalanceText = zeroBalanceCount > 0 ? ` and ${zeroBalanceCount} empty ${zeroBalanceCount === 1 ? 'deposit' : 'deposits'}` : '';
+  
+  return `Your total balance is ${totalBalanceFormatted} USDC. You have ${nonZeroBalances.length} active ${nonZeroBalances.length === 1 ? 'deposit' : 'deposits'}: ${balanceDetails}${zeroBalanceText}.`;
 }
 
-/**
- * Get a provider instance for blockchain interactions
- */
-async function getProvider(runtime: IAgentRuntime): Promise<ethers.Provider | null> {
-  try {
-    // Get the RPC URL from environment or configuration
-    const rpcUrl = process.env.RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc'; // Default to Avalanche Fuji testnet
-    
-    // Create provider
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    
-    return provider;
-  } catch (error) {
-    logger.error('Error getting provider:', error);
-    return null;
-  }
-}
 
 export default getBalanceAction;

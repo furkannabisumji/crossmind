@@ -132,7 +132,7 @@ export const character: Character = {
       {
         name: 'Zoya',
         content: {
-          text: "I've checked your balance in the CrossMind Vault. You currently have 1,700 USDC total: 1,000 USDC in low-risk deposits (unlocked), 500 USDC in medium-risk deposits (locked), and 200 USDC in high-risk deposits (unlocked). Would you like to create a strategy with these funds?",
+          text: "Let me check your CrossMind Vault balance for you.",
           actions: ['GET_BALANCE'],
         },
       },
@@ -147,7 +147,7 @@ export const character: Character = {
       {
         name: 'Zoya',
         content: {
-          text: "I've created and registered a balanced investment strategy using your available funds. Your strategy allocates 40% to Ethereum (Protocol 1), 30% to Avalanche (AAVE), and 30% to Polygon (QuickSwap). This distribution balances risk while targeting competitive yields across multiple chains. Your transaction has been submitted successfully. Would you like to see the available investment options for future strategies?",
+          text: "Let me analyze your balance and create an optimal investment strategy for you.",
           actions: ['REGISTER_STRATEGY'],
         },
       },

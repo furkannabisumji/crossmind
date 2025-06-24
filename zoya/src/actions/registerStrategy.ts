@@ -1,137 +1,6 @@
 import { Action, IAgentRuntime, Memory, State, HandlerCallback, logger } from "@elizaos/core";
 import { ethers } from "ethers";
-
-// ABI fragment for the CrossMindVault contract to check balance
-const vaultABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getBalance",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "amount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "enum CrossMindVault.Risk",
-            "name": "risk",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bool",
-            "name": "locked",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct CrossMindVault.Balance[]",
-        "name": "",
-        "type": "tuple[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "balanceOf",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "total",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-];
-
-// ABI fragment for the registerStrategy function
-const strategyManagerABI = [
-  {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "index",
-            "type": "uint256"
-          },
-          {
-            "internalType": "enum StrategyManager.Status",
-            "name": "status",
-            "type": "uint8"
-          },
-          {
-            "internalType": "uint256",
-            "name": "amount",
-            "type": "uint256"
-          },
-          {
-            "components": [
-              {
-                "internalType": "uint64",
-                "name": "chainId",
-                "type": "uint64"
-              },
-              {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "components": [
-                  {
-                    "internalType": "address",
-                    "name": "adapter",
-                    "type": "address"
-                  },
-                  {
-                    "internalType": "uint256",
-                    "name": "percentage",
-                    "type": "uint256"
-                  }
-                ],
-                "internalType": "struct StrategyManager.AdapterDeposit[]",
-                "name": "deposits",
-                "type": "tuple[]"
-              }
-            ],
-            "internalType": "struct StrategyManager.ChainDeposit[]",
-            "name": "deposits",
-            "type": "tuple[]"
-          }
-        ],
-        "internalType": "struct StrategyManager.Strategy",
-        "name": "strategy",
-        "type": "tuple"
-      },
-      {
-        "internalType": "uint256",
-        "name": "index",
-        "type": "uint256"
-      }
-    ],
-    "name": "registerStrategy",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-];
+import { vaultABI, strategyManagerABI } from "../abis";
 
 /**
  * Represents the risk level of a balance in the CrossMindVault contract
@@ -197,18 +66,41 @@ interface Strategy {
   deposits: ChainDeposit[];
 }
 
+// Protocol data for intelligent strategy generation - using real deployed adapter addresses
+const protocolData: { [key: string]: { expectedAPY: number; riskScore: number; adapter: string; } } = {
+  'AAVE': { expectedAPY: 5.2, riskScore: 3, adapter: '0xB361aB7b925c8F094F16407702d6fD275534d981' }, // AaveV3Adapter on Sepolia
+  'QuickSwap': { expectedAPY: 12.3, riskScore: 7, adapter: '0x3014A74fd44017341dD471C73e9980D156c7Bc02' }, // AdapterRegistry as placeholder
+  'GMX': { expectedAPY: 15.8, riskScore: 8, adapter: '0x3014A74fd44017341dD471C73e9980D156c7Bc02' }, // AdapterRegistry as placeholder
+  'Camelot': { expectedAPY: 11.4, riskScore: 6, adapter: '0x3014A74fd44017341dD471C73e9980D156c7Bc02' }, // AdapterRegistry as placeholder
+  'TraderJoe': { expectedAPY: 9.7, riskScore: 5, adapter: '0x3014A74fd44017341dD471C73e9980D156c7Bc02' }, // AdapterRegistry as placeholder
+  'USDC': { expectedAPY: 2.1, riskScore: 1, adapter: '0x3014A74fd44017341dD471C73e9980D156c7Bc02' } // AdapterRegistry as placeholder
+};
+
+// Chain data with gas efficiency - focusing on deployed networks
+const chainData: { [key: number]: { name: string; gasEfficiency: number; protocols: string[]; } } = {
+  11155111: { name: "Ethereum Sepolia", gasEfficiency: 5, protocols: ['AAVE', 'USDC'] }, // Primary testnet
+  43113: { name: "Avalanche Fuji", gasEfficiency: 8, protocols: ['AAVE', 'TraderJoe', 'USDC'] }, // Secondary testnet
+  137: { name: "Polygon", gasEfficiency: 9, protocols: ['QuickSwap', 'AAVE', 'USDC'] },
+  42161: { name: "Arbitrum", gasEfficiency: 8, protocols: ['GMX', 'Camelot', 'USDC'] }
+};
+
 const registerStrategyAction: Action = {
   name: 'REGISTER_STRATEGY',
-  similes: ['CREATE_STRATEGY', 'NEW_STRATEGY', 'SETUP_STRATEGY'],
-  description: 'Registers a new investment strategy in the CrossMind system',
+  similes: ['CREATE_STRATEGY', 'NEW_STRATEGY', 'SETUP_STRATEGY', 'GIVE_STRATEGY'],
+  description: 'Automatically generates and registers an optimal investment strategy based on available chains, adapters, and user risk profile',
 
   validate: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
-    // Check if the message contains keywords related to strategy registration
+    // Check if the message contains keywords related to strategy generation/registration
     const text = message.content.text?.toLowerCase() || '';
-    return text.includes('register strategy') || 
-           text.includes('create strategy') || 
-           text.includes('new strategy') || 
-           text.includes('setup strategy');
+    
+    // Match patterns like "give me strategy", "create strategy", "register strategy", etc.
+    return (text.includes('strategy') || text.includes('stargy')) && 
+           (text.includes('give') || text.includes('create') || text.includes('register') || 
+            text.includes('setup') || text.includes('new') || text.includes('generate') ||
+            text.includes('auto') || text.includes('make') || text.includes('build')) &&
+           // Exclude requests that are specifically asking for recommendations/analysis only
+           !text.includes('recommend') && !text.includes('suggest') && !text.includes('analyze') &&
+           !text.includes('best') && !text.includes('advice');
   },
 
   handler: async (
@@ -227,7 +119,7 @@ const registerStrategyAction: Action = {
       if (!userAddress) {
         const responseContent = {
           thought: 'Unable to extract user address from the message',
-          text: 'I need your wallet address to check your balance before registering a strategy. Please provide your Ethereum address.',
+          text: 'I need your wallet address to check your balance before generating a strategy. Please provide your Ethereum address.',
           actions: ['REGISTER_STRATEGY'],
         };
         
@@ -259,7 +151,7 @@ const registerStrategyAction: Action = {
       if (balanceData.data && balanceData.data.balances.length === 0) {
         const responseContent = {
           thought: 'User has no balance in the vault',
-          text: 'You don\'t have any deposits in the CrossMind vault. Please deposit funds first before registering a strategy.',
+          text: 'You don\'t have any deposits in the CrossMind vault. Please deposit funds first before I can generate a strategy.',
           actions: ['REGISTER_STRATEGY'],
         };
         
@@ -270,13 +162,13 @@ const registerStrategyAction: Action = {
         return responseContent;
       }
 
-      // Get the strategy data from the message or state
-      const strategyData = await extractStrategyData(runtime, message, state, balanceData.data);
+      // Automatically generate optimal strategy based on user balance, risk profile, and available options
+      const strategyData = await generateOptimalStrategy(runtime, message, balanceData.data);
       
       if (!strategyData) {
         const responseContent = {
-          thought: 'Unable to extract strategy data from the message',
-          text: 'I need more information about the strategy you want to register. Please provide details about chains, protocols, and allocation percentages.',
+          thought: 'Unable to generate optimal strategy',
+          text: 'I couldn\'t generate an optimal strategy. Please ensure there are available protocols and try again.',
           actions: ['REGISTER_STRATEGY'],
         };
         
@@ -288,14 +180,16 @@ const registerStrategyAction: Action = {
       }
 
       // Call the contract to register the strategy
-      const result = await registerStrategyOnChain(runtime, strategyData);
+      const result = await registerStrategyOnChain(runtime, strategyData, userAddress);
       
-      // Generate response based on the result
+      // Generate detailed response with strategy explanation
+      const strategyDescription = await formatStrategyDescription(runtime, strategyData.strategy);
+      
       const responseContent = {
         thought: `Strategy registration ${result.success ? 'succeeded' : 'failed'}: ${result.message}`,
         text: result.success 
-          ? `Successfully registered your strategy! Transaction hash: ${result.txHash}` 
-          : `Failed to register strategy: ${result.message}. Please try again or check your wallet connection.`,
+          ? `🎯 **Strategy Generated & Registered Successfully!**\n\n${strategyDescription}\n\n✅ Transaction Hash: ${result.txHash}\n\nYour optimized strategy is now active and ready for execution!` 
+          : `❌ Failed to register strategy: ${result.message}. Please try again or check your wallet connection.`,
         actions: ['REGISTER_STRATEGY'],
       };
       
@@ -309,7 +203,7 @@ const registerStrategyAction: Action = {
       
       const errorResponse = {
         thought: `Error occurred during strategy registration: ${error}`,
-        text: 'Sorry, there was an error while trying to register your strategy. Please check your connection and try again.',
+        text: 'Sorry, there was an error while generating and registering your strategy. Please check your connection and try again.',
         actions: ['REGISTER_STRATEGY'],
       };
       
@@ -325,13 +219,41 @@ const registerStrategyAction: Action = {
     [
       {
         name: '{{name1}}',
-        content: { text: 'I want to register a new strategy for my funds' },
+        content: { text: 'give me stargy 0x35134987bB541607Cd45e62Dd1feA4F587607817' },
       },
       {
         name: '{{name2}}',
         content: {
-          text: 'I can help you register a new investment strategy. Please provide details about which chains and protocols you want to include, along with allocation percentages.',
-          thought: 'Need to collect strategy information from the user',
+          text: '🎯 **Strategy Generated & Registered Successfully!**\n\nBased on your 0.03 USDC balance and medium risk profile, I\'ve created an optimal strategy:\n\n• 60% Polygon QuickSwap (12.3% APY) - High yield DeFi\n• 40% Avalanche AAVE (5.2% APY) - Stable lending\n\n**Expected Total APY: 9.5%**\n**Risk Level: Medium**\n\n✅ Transaction Hash: 0x1234...5678\n\nYour optimized strategy is now active and ready for execution!',
+          thought: 'Successfully generated and registered optimal strategy based on user balance and risk profile',
+          actions: ['REGISTER_STRATEGY'],
+        },
+      },
+    ],
+    [
+      {
+        name: '{{name1}}',
+        content: { text: 'create a strategy for my wallet' },
+      },
+      {
+        name: '{{name2}}',
+        content: {
+          text: '🎯 **Strategy Generated & Registered Successfully!**\n\nAnalyzed your balance and generated a balanced multi-chain strategy:\n\n• 45% Avalanche AAVE (5.2% APY) - Low risk lending\n• 35% Polygon QuickSwap (12.3% APY) - Medium risk DEX\n• 20% Arbitrum Camelot (11.4% APY) - Medium risk yield\n\n**Expected Total APY: 8.7%**\n**Risk Level: Medium-Low**\n\n✅ Transaction Hash: 0xabcd...efgh\n\nYour diversified strategy is now registered!',
+          thought: 'Generated balanced multi-chain strategy with optimal risk distribution',
+          actions: ['REGISTER_STRATEGY'],
+        },
+      },
+    ],
+    [
+      {
+        name: '{{name1}}',
+        content: { text: 'generate an aggressive strategy' },
+      },
+      {
+        name: '{{name2}}',
+        content: {
+          text: '🎯 **Aggressive Strategy Generated & Registered!**\n\nMaximizing yield with higher risk tolerance:\n\n• 50% Arbitrum GMX (15.8% APY) - High yield perpetuals\n• 30% Polygon QuickSwap (12.3% APY) - High yield DEX\n• 20% Avalanche TraderJoe (9.7% APY) - Medium yield\n\n**Expected Total APY: 13.1%**\n**Risk Level: High**\n\n✅ Transaction Hash: 0x9876...5432\n\nHigh-reward strategy active! Monitor closely due to increased volatility.',
+          thought: 'Generated high-risk, high-reward strategy for aggressive user preference',
           actions: ['REGISTER_STRATEGY'],
         },
       },
@@ -340,35 +262,50 @@ const registerStrategyAction: Action = {
 };
 
 /**
- * Extract user address from the message or state
+ * Extract user address from various possible formats in the message with persistent memory
  */
 async function extractUserAddress(runtime: IAgentRuntime, message: Memory, state?: State): Promise<string | null> {
-  // This is a placeholder implementation
-  // In a real application, you would extract this data from the user message or a form
-  
-  const text = message.content.text?.toLowerCase() || '';
-  
-  // Check if the message contains an Ethereum address
-  const addressRegex = /0x[a-fA-F0-9]{40}/;
-  const match = text.match(addressRegex);
-  
-  if (match) {
-    return match[0];
+  try {
+    const text = message.content.text || '';
+    
+    // Look for Ethereum address pattern (0x followed by 40 hex characters)
+    const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
+    
+    if (addressMatch) {
+      // Found address in message - store it in state for future use
+      if (state) {
+        state.userAddress = addressMatch[0];
+      }
+      logger.info(`Extracted and stored user address: ${addressMatch[0]}`);
+      return addressMatch[0];
+    }
+    
+    // Check if address is in state (from previous conversation)
+    if (state?.userAddress) {
+      logger.info(`Retrieved user address from state: ${state.userAddress}`);
+      return state.userAddress as string;
+    }
+    
+    // Could also check runtime for user context
+    if (runtime.character?.settings?.walletAddress) {
+      const address = runtime.character.settings.walletAddress as string;
+      if (state) {
+        state.userAddress = address;
+      }
+      return address;
+    }
+    
+    // If no address found anywhere, return null to prompt user for address
+    logger.warn('No user address found - user needs to provide wallet address');
+    return null;
+  } catch (error) {
+    logger.error('Error extracting user address:', error);
+    return null;
   }
-  
-  // If no address in the message, try to get it from state or user profile
-  // This is just a placeholder - in a real app you'd implement proper user authentication
-  if (state?.user?.address) {
-    return state.user.address;
-  }
-  
-  // For demo purposes, return a test address
-  // In production, you would require the user to provide their address or connect their wallet
-  return '0x1234567890123456789012345678901234567890';
 }
 
 /**
- * Get user balance from the blockchain by calling the CrossMindVault contract
+ * Get user balance data from the CrossMindVault contract
  */
 async function getUserBalanceFromChain(runtime: IAgentRuntime, userAddress: string): Promise<{
   success: boolean;
@@ -376,44 +313,116 @@ async function getUserBalanceFromChain(runtime: IAgentRuntime, userAddress: stri
   data?: UserBalance;
 }> {
   try {
-    // Get the contract address from environment or configuration
-    const contractAddress = process.env.VAULT_CONTRACT_ADDRESS;
-    if (!contractAddress) {
-      return { success: false, message: 'Vault contract address not configured' };
-    }
-    
-    // Get the provider from the runtime or environment
     const provider = await getProvider(runtime);
     if (!provider) {
-      return { success: false, message: 'Provider not available or not connected' };
+      return { success: false, message: 'Provider not available' };
     }
+
+    // Contract addresses (these should come from environment variables in production)
+    const vaultAddress = process.env.VAULT_CONTRACT_ADDRESS;
     
-    // Create contract instance (read-only since we're just querying)
-    const contract = new ethers.Contract(contractAddress, vaultABI, provider);
+    // Create contract instance
+    const vaultContract = new ethers.Contract(vaultAddress, vaultABI, provider);
     
-    // Call the getBalance function to get detailed balance info
-    const balances = await contract.getBalance(userAddress);
+    // Call the getBalance function
+    const balances = await vaultContract.getBalance(userAddress);
     
-    // Call the balanceOf function to get total balance
-    const totalBalance = await contract.balanceOf(userAddress);
-    
-    // Format the balance data
-    const formattedBalances = balances.map((balance: any) => ({
-      amount: balance.amount.toString(),
-      risk: Number(balance.risk),
-      locked: balance.locked
+    // Convert the result to our interface format
+    const formattedBalances: Balance[] = balances.map((balance: any) => ({
+      amount: ethers.formatUnits(balance.amount, 6), // USDC has 6 decimals
+      risk: Number(balance.risk) as RiskLevel, // Convert BigInt to Number
+      locked: balance.locked,
     }));
+    
+    // Calculate total balance
+    const totalBalance = formattedBalances.reduce((sum, balance) => {
+      return sum + parseFloat(balance.amount);
+    }, 0).toString();
     
     return {
       success: true,
       message: 'Balance retrieved successfully',
       data: {
         balances: formattedBalances,
-        totalBalance: totalBalance.toString()
-      }
+        totalBalance: totalBalance,
+      },
     };
   } catch (error) {
-    logger.error('Error getting balance from chain:', error);
+    logger.error('Error getting user balance from chain:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+}
+
+/**
+ * Get available chains and protocol adapters from StrategyManager contract
+ */
+async function getAvailableProtocolsFromContract(runtime: IAgentRuntime): Promise<{
+  success: boolean;
+  message: string;
+  data?: { [chainId: number]: Array<{ name: string; adapter: string; }> };
+}> {
+  try {
+    const provider = await getProvider(runtime);
+    if (!provider) {
+      return { success: false, message: 'Provider not available' };
+    }
+
+    const strategyManagerAddress = process.env.STRATEGY_MANAGER_CONTRACT_ADDRESS;
+    if (!strategyManagerAddress) {
+      return { success: false, message: 'Strategy Manager contract address not configured' };
+    }
+    
+    // Create contract instance
+    const strategyManagerContract = new ethers.Contract(strategyManagerAddress, strategyManagerABI, provider);
+    
+    // Get all supported chains
+    const allChains = await strategyManagerContract.getAllChains();
+    console.log('Available chains:', allChains);
+    
+    const chainProtocols: { [chainId: number]: Array<{ name: string; adapter: string; }> } = {};
+    
+    for (const chainId of allChains) {
+      const chainIdNumber = parseInt(chainId.toString()); // Convert BigInt to Number properly
+      const protocols: Array<{ name: string; adapter: string; }> = [];
+      
+      // Get protocols for this chain by iterating through chainProtocols mapping
+      let protocolIndex = 0;
+      
+      while (protocolIndex < 10) { // Limit to prevent infinite loop
+        try {
+          const protocolInfo = await strategyManagerContract.chainProtocols(chainIdNumber, protocolIndex);
+          
+          if (protocolInfo.name && protocolInfo.adapter !== ethers.ZeroAddress) {
+            protocols.push({
+              name: protocolInfo.name,
+              adapter: protocolInfo.adapter
+            });
+          }
+          protocolIndex++;
+        } catch (error) {
+          // If we get an error, we've reached the end of the protocols for this chain
+          break;
+        }
+      }
+      
+      if (protocols.length > 0) {
+        chainProtocols[chainIdNumber] = protocols;
+        console.log(`Chain ${chainIdNumber} protocols:`, protocols);
+      } else {
+        console.log(`No protocols found for chain ${chainIdNumber}`);
+      }
+    }
+    
+    return {
+      success: true,
+      message: 'Available protocols retrieved successfully',
+      data: chainProtocols
+    };
+  } catch (error) {
+    logger.error('Error getting available protocols from contract:', error);
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -427,65 +436,229 @@ async function getUserBalanceFromChain(runtime: IAgentRuntime, userAddress: stri
 async function getProvider(runtime: IAgentRuntime): Promise<ethers.Provider | null> {
   try {
     // Get the RPC URL from environment or configuration
-    const rpcUrl = process.env.RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc'; // Default to Avalanche Fuji testnet
+    const rpcUrl = process.env.EVM_PROVIDER_URL || 'https://rpc.sepolia.org'; // Default to Sepolia testnet
     
-    // Create provider
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    
-    return provider;
+    // Create and return the provider
+    return new ethers.JsonRpcProvider(rpcUrl);
   } catch (error) {
-    logger.error('Error getting provider:', error);
+    logger.error('Error creating provider:', error);
     return null;
   }
 }
 
 /**
- * Extract strategy data from the user message or state
- * In a real implementation, this would parse user input or use a form
+ * Automatically generate optimal strategy based on user balance, risk profile, and available options
  */
-async function extractStrategyData(runtime: IAgentRuntime, message: Memory, state?: State, balanceData?: UserBalance): Promise<{
+async function generateOptimalStrategy(runtime: IAgentRuntime, message: Memory, balanceData: UserBalance): Promise<{
   strategy: Strategy;
   vaultIndex: number;
 } | null> {
-  // This is a placeholder implementation
-  // In a real application, you would extract this data from the user message or a form
-  
-  const text = message.content.text?.toLowerCase() || '';
-  
-  // Very basic parsing - in reality, you would use a more sophisticated approach
-  // such as structured forms or a multi-step conversation
-  if (!text.includes('strategy')) {
+  try {
+    const text = message.content.text?.toLowerCase() || '';
+    const totalBalance = parseFloat(balanceData.totalBalance);
+    
+    if (totalBalance <= 0) {
+      return null;
+    }
+
+    // First, get available protocols from the contract
+    const availableProtocols = await getAvailableProtocolsFromContract(runtime);
+    if (!availableProtocols.success || !availableProtocols.data) {
+      logger.error('Failed to retrieve available protocols:', availableProtocols.message);
+      return null;
+    }
+
+    const chainProtocols = availableProtocols.data;
+    console.log('Retrieved chain protocols from contract:', chainProtocols);
+
+    // Check if we have any protocols available
+    const totalProtocolCount = Object.values(chainProtocols).reduce((sum, protocols) => sum + protocols.length, 0);
+    if (totalProtocolCount === 0) {
+      logger.error('No protocols available in any chain');
+      return null;
+    }
+
+    // Determine user risk preference from current balances and message
+    let riskPreference = 'balanced'; // default
+    console.log('Balance data:', balanceData);
+    const avgRisk = balanceData.balances.length > 0 
+      ? balanceData.balances.reduce((sum, b) => sum + parseInt(b.risk.toString()), 0) / balanceData.balances.length 
+      : 1;
+    
+    if (text.includes('conservative') || text.includes('safe') || text.includes('low risk') || avgRisk <= 1) {
+      riskPreference = 'conservative';
+    } else if (text.includes('aggressive') || text.includes('high yield') || text.includes('risky') || avgRisk >= 2) {
+      riskPreference = 'aggressive';
+    }
+
+    // Generate strategy based on risk preference and available protocols
+    let strategyTemplate: ChainDeposit[] = [];
+    
+    const availableChainIds = Object.keys(chainProtocols).map(key => parseInt(key));
+    if (availableChainIds.length === 0) {
+      logger.error('No chains with protocols available');
+      return null;
+    }
+
+    // Convert totalBalance from string to number for comparison
+    const totalBalanceNumber = parseFloat(balanceData.totalBalance);
+    
+    // For small balances, use single chain to minimize gas costs
+    if (totalBalanceNumber < 10) {
+      // Pick the first available chain with protocols
+      const primaryChainId = availableChainIds[0];
+      const availableProtocolsForChain = chainProtocols[primaryChainId];
+      
+      if (availableProtocolsForChain.length === 0) {
+        logger.error(`No protocols available for chain ${primaryChainId}`);
+        return null;
+      }
+
+      // Single chain strategy
+      const deposits: AdapterDeposit[] = [];
+      
+      if (availableProtocolsForChain.length === 1) {
+        // Only one protocol available
+        deposits.push({
+          adapter: availableProtocolsForChain[0].adapter,
+          percentage: 100
+        });
+      } else if (availableProtocolsForChain.length >= 2) {
+        // Multiple protocols - distribute based on risk preference
+        if (riskPreference === 'conservative') {
+          // Conservative: 80/20 split favoring first protocol
+          deposits.push(
+            { adapter: availableProtocolsForChain[0].adapter, percentage: 80 },
+            { adapter: availableProtocolsForChain[1].adapter, percentage: 20 }
+          );
+        } else if (riskPreference === 'aggressive') {
+          // Aggressive: 60/40 split
+          deposits.push(
+            { adapter: availableProtocolsForChain[0].adapter, percentage: 60 },
+            { adapter: availableProtocolsForChain[1].adapter, percentage: 40 }
+          );
+        } else {
+          // Balanced: 70/30 split
+          deposits.push(
+            { adapter: availableProtocolsForChain[0].adapter, percentage: 70 },
+            { adapter: availableProtocolsForChain[1].adapter, percentage: 30 }
+          );
+        }
+      }
+
+      strategyTemplate = [
+        {
+          chainId: primaryChainId,
+          amount: 0,
+          deposits: deposits,
+        },
+      ];
+    } else {
+      // Larger balance: can afford multi-chain strategy
+      const chainsToUse = availableChainIds.slice(0, Math.min(3, availableChainIds.length)); // Use up to 3 chains
+      
+      for (let i = 0; i < chainsToUse.length; i++) {
+        const chainId = chainsToUse[i];
+        const protocolsForChain = chainProtocols[chainId];
+        
+        if (protocolsForChain.length > 0) {
+          // Calculate percentage based on chain priority (first chain gets more)
+          let percentage: number;
+          if (chainsToUse.length === 1) {
+            percentage = 100;
+          } else if (chainsToUse.length === 2) {
+            percentage = i === 0 ? 70 : 30;
+          } else { // 3 chains
+            percentage = i === 0 ? 50 : (i === 1 ? 30 : 20);
+          }
+
+          strategyTemplate.push({
+            chainId: chainId,
+            amount: 0,
+            deposits: [
+              {
+                adapter: protocolsForChain[0].adapter, // Use first available protocol for each chain
+                percentage: percentage
+              }
+            ],
+          });
+        }
+      }
+    }
+
+    return {
+      strategy: {
+        index: 0, // This will be set by the contract
+        status: StrategyStatus.PENDING,
+        amount: Math.floor(totalBalanceNumber * 1000000), // Convert to USDC decimals (6)
+        deposits: strategyTemplate,
+      },
+      vaultIndex: 0, // Use first available balance slot
+    };
+  } catch (error) {
+    logger.error('Error generating optimal strategy:', error);
     return null;
   }
+}
+
+/**
+ * Format strategy description for user-friendly display
+ */
+async function formatStrategyDescription(runtime: IAgentRuntime, strategy: Strategy): Promise<string> {
+  // Strategy amount is stored as wei, convert to USDC for display
+  const balanceInUsdc = ethers.formatUnits(strategy.amount, 6);
+  let description = `Based on your ${parseFloat(balanceInUsdc).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC balance, I've generated an optimal strategy:\n\n`;
   
-  // Sample strategy data - in production this would come from user input
-  // If we have balance data, use it to inform the strategy
-  const amount = balanceData ? parseInt(balanceData.totalBalance) : 0;
+  // Get the latest protocol data from contract
+  const availableProtocols = await getAvailableProtocolsFromContract(runtime);
+  const chainProtocols = availableProtocols.success ? availableProtocols.data : {};
   
-  return {
-    strategy: {
-      index: 0, // This will be set by the contract
-      status: StrategyStatus.PENDING,
-      amount: amount, // Use the user's balance amount if available
-      deposits: [
-        {
-          chainId: 43113, // Avalanche Fuji testnet
-          amount: 0, // Will be calculated by the contract
-          deposits: [
-            {
-              adapter: '0x1234567890123456789012345678901234567890', // Example adapter address
-              percentage: 50,
-            },
-            {
-              adapter: '0x0987654321098765432109876543210987654321', // Example adapter address
-              percentage: 50,
-            },
-          ],
-        },
-      ],
-    },
-    vaultIndex: 0, // Index of the vault to use
-  };
+  let totalExpectedAPY = 0;
+  let totalPercentage = 0;
+  
+  strategy.deposits.forEach(chainDeposit => {
+    const chainInfo = chainData[chainDeposit.chainId];
+    const chainName = chainInfo ? chainInfo.name : `Chain ${chainDeposit.chainId}`;
+    
+    description += `**${chainName}:**\n`;
+    
+    chainDeposit.deposits.forEach(adapterDeposit => {
+      // Find protocol by adapter address from contract data
+      let protocolName = 'Unknown Protocol';
+      let expectedAPY = 5.0; // Default APY
+      
+      if (chainProtocols && chainProtocols[chainDeposit.chainId]) {
+        const protocolInfo = chainProtocols[chainDeposit.chainId].find(p => p.adapter === adapterDeposit.adapter);
+        if (protocolInfo) {
+          protocolName = protocolInfo.name;
+          // Use hardcoded APY data for display (since contract doesn't store APY)
+          const apyData = protocolData[protocolName];
+          expectedAPY = apyData ? apyData.expectedAPY : 5.0;
+        }
+      }
+      
+      description += `• ${adapterDeposit.percentage}% ${protocolName} (${expectedAPY}% APY)\n`;
+      
+      totalExpectedAPY += (adapterDeposit.percentage / 100) * expectedAPY;
+      totalPercentage += adapterDeposit.percentage;
+    });
+    description += '\n';
+  });
+  
+  description += `**Expected Total APY: ${totalExpectedAPY.toFixed(1)}%**\n`;
+  description += `**Risk Level: ${getRiskLevelText(totalExpectedAPY)}**`;
+  
+  return description;
+}
+
+/**
+ * Get risk level text based on expected APY
+ */
+function getRiskLevelText(expectedAPY: number): string {
+  if (expectedAPY < 5) return 'Low';
+  if (expectedAPY < 10) return 'Medium';
+  if (expectedAPY < 15) return 'Medium-High';
+  return 'High';
 }
 
 /**
@@ -494,38 +667,69 @@ async function extractStrategyData(runtime: IAgentRuntime, message: Memory, stat
 async function registerStrategyOnChain(runtime: IAgentRuntime, data: {
   strategy: Strategy;
   vaultIndex: number;
-}): Promise<{ success: boolean; message: string; txHash?: string }> {
+}, userAddress: string): Promise<{ success: boolean; message: string; txHash?: string }> {
   try {
-    // Get the contract address from environment or configuration
-    /*const contractAddress = process.env.STRATEGY_MANAGER_CONTRACT_ADDRESS;
+    const contractAddress = process.env.STRATEGY_MANAGER_CONTRACT_ADDRESS;
     if (!contractAddress) {
-      return { success: false, message: 'Strategy Manager contract address not configured' };
+      return { 
+        success: false, 
+        message: 'Strategy Manager contract address not configured. Please set STRATEGY_MANAGER_CONTRACT_ADDRESS environment variable to: 0xB07a95486F9B28933345Bce32396A15a38Fc43E0' 
+      };
     }
     
-    // Get the wallet from the runtime or environment
     const wallet = await getWallet(runtime);
     if (!wallet) {
       return { success: false, message: 'Wallet not available or not connected' };
     }
     
-    // Create contract instance
+    logger.info('Wallet address:', wallet.address);
+    logger.info('Expected user from strategy context:', data.strategy.index);
+    
+    // Convert our strategy format to contract format
+    // The contract expects ChainDeposit[] structure (corrected ABI)
+    const contractStrategy = {
+      index: data.strategy.index,
+      status: data.strategy.status,
+      amount: data.strategy.amount,
+      deposits: data.strategy.deposits.map(chainDeposit => ({
+        chainId: chainDeposit.chainId,
+        amount: chainDeposit.amount,
+        deposits: chainDeposit.deposits.map(deposit => ({
+          adapter: deposit.adapter,
+          percentage: deposit.percentage
+        }))
+      }))
+    };
+    
     const contract = new ethers.Contract(contractAddress, strategyManagerABI, wallet);
     
-    // Call the registerStrategy function
-    const tx = await contract.registerStrategy(data.strategy, data.vaultIndex);
+    logger.info('Calling registerStrategy with:', {
+      strategy: contractStrategy,
+      vaultIndex: data.vaultIndex
+    });
     
-    // Wait for the transaction to be mined
+    // First try to estimate gas to see if the call would succeed
+    try {
+      const gasEstimate = await contract.registerStrategy.estimateGas(contractStrategy, data.vaultIndex);
+      logger.info('Gas estimate:', gasEstimate.toString());
+    } catch (gasError) {
+      logger.error('Gas estimation failed:', gasError);
+      return {
+        success: false,
+        message: `Transaction would fail: The private key (EVM_PRIVATE_KEY) doesn't correspond to the user address ${userAddress}. The contract requires the user to sign their own strategy registration. Please set EVM_PRIVATE_KEY to the private key for address ${userAddress}.`
+      };
+    }
+    
+    const tx = await contract.registerStrategy(contractStrategy, data.vaultIndex);
+    logger.info('Transaction submitted:', tx.hash);
+    
     const receipt = await tx.wait();
+    logger.info('Transaction confirmed:', receipt);
     
     return {
       success: true,
       message: 'Strategy registered successfully',
-      txHash: receipt.transactionHash,
-    };*/
-    return {
-      success: true,
-      message: 'Strategy registered successfully',
-      txHash: '0x1234567890123456789012345678901234567890123456789012345678901234',
+      txHash: receipt.hash || tx.hash,
     };
   } catch (error) {
     logger.error('Error registering strategy on-chain:', error);
@@ -541,21 +745,18 @@ async function registerStrategyOnChain(runtime: IAgentRuntime, data: {
  */
 async function getWallet(runtime: IAgentRuntime): Promise<ethers.Wallet | null> {
   try {
-    // In a real implementation, you would get the wallet from the runtime or environment
-    // This is a placeholder implementation
-    
-    // Example using private key from environment (not recommended for production)
-    const privateKey = process.env.WALLET_PRIVATE_KEY;
+    const privateKey = process.env.EVM_PRIVATE_KEY;
     if (!privateKey) {
-      logger.error('Wallet private key not configured');
+              logger.error('Wallet private key not configured. Please set EVM_PRIVATE_KEY environment variable.');
       return null;
     }
     
-    // Get the RPC URL from environment or configuration
-    const rpcUrl = process.env.RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc'; // Default to Avalanche Fuji testnet
+    const provider = await getProvider(runtime);
+    if (!provider) {
+      logger.error('Provider not available');
+      return null;
+    }
     
-    // Create provider and wallet
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
     const wallet = new ethers.Wallet(privateKey, provider);
     
     return wallet;
