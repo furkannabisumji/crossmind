@@ -1,17 +1,19 @@
-import { strategyRegistryABI } from './strategy-registry-abi';
-import { portfolioABI } from './portfolio-abi';
-import { crossMindVaultABI } from './cross-mind-vault-abi';
-import { strategyManagerABI } from './strategy-manager-abi';
+import { crossMindVaultABI } from "./cross-mind-vault-abi";
+import { strategyManagerABI } from "./strategy-manager-abi";
+import { aaveV3AdapterABI } from "./aavev3-adapter-abi";
+import { crossChainExecutorABI } from "./cross-chain-excutor-abi";
+import { adapterRegistryABI } from "./adapter-registry-abi";
 
 /**
  * Centralized export of all contract ABIs
  * Add new ABIs here as they are created
  */
 export const ABIS = {
-  StrategyRegistry: strategyRegistryABI,
-  Portfolio: portfolioABI,
   CrossMindVault: crossMindVaultABI,
   StrategyManager: strategyManagerABI,
+  AaveV3Adapter: aaveV3AdapterABI,
+  CrossChainExecutor: crossChainExecutorABI,
+  AdapterRegistry: adapterRegistryABI,
 } as const;
 
 /**

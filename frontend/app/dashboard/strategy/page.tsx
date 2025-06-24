@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useWriteContract } from "wagmi";
 import type { UiMessage } from "@/hooks/use-query-hooks";
 import { ChannelType, UUID } from "@elizaos/core";
 import { apiClient } from "@/lib/api";
-
-// Use UiMessage directly since it already has all required fields
-type Message = UiMessage;
 import { WalletConnectionWrapper } from "@/components/shared/wallet-connection-wrapper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,11 +17,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/use-toast";
+
+// Use UiMessage directly since it already has all required fields
+type Message = UiMessage;
 
 import { Brain, ArrowRight, Loader2 } from "lucide-react";
-import { useTokenApproval } from "@/hooks/use-token-approval";
+import { ERC20_ABI, useTokenApproval } from "@/hooks/use-token-approval";
 import { useVault } from "@/hooks/use-vault";
 import { useSocketChat } from "@/hooks/use-socket-chat";
+import { getContractAddress } from "@/lib/contracts/addresses";
+
+import { useChainId } from "wagmi";
+import { ABIS } from "@/lib/contracts/abis";
+import { parseUnits } from "viem";
 
 export default function StrategyPage() {
   // UI state
@@ -34,7 +40,7 @@ export default function StrategyPage() {
     "deposit" | "generate" | "approve" | "execute"
   >("deposit");
   const [riskLevel, setRiskLevel] = useState<"Low" | "Medium" | "High" | "">(
-    ""
+    "",
   );
   const [selectedToken, setSelectedToken] = useState<string>("usdc");
   const [userInput, setUserInput] = useState("");
@@ -48,7 +54,13 @@ export default function StrategyPage() {
 
   // Wallet hooks
   const { isConnected, address } = useAccount();
-  const { checkAllowance, approveTokens: approveToken } = useTokenApproval();
+  const chainId = useChainId();
+  const {
+    checkAllowance,
+    approveTokens: approveToken,
+    isApprovalSuccess,
+    approvalHash,
+  } = useTokenApproval(getContractAddress("USDC", chainId));
   const { deposit } = useVault();
 
   // Use our Zoya strategy hook that integrates with the CrossMind API
@@ -58,6 +70,8 @@ export default function StrategyPage() {
 
   // State to hold the dynamic channel ID created for this session
   const [dynamicChannelId, setDynamicChannelId] = useState<UUID | undefined>();
+
+  const { toast } = useToast();
 
   // Always call hook unconditionally to avoid React hooks order error
   // Don't use empty string fallback - let hook properly handle undefined state
@@ -82,8 +96,8 @@ export default function StrategyPage() {
     onUpdateMessage: (messageId: string, updates: Partial<Message>) =>
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === messageId ? { ...msg, ...updates } : msg
-        )
+          msg.id === messageId ? { ...msg, ...updates } : msg,
+        ),
       ),
     onDeleteMessage: (messageId: string) =>
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId)),
@@ -100,6 +114,18 @@ export default function StrategyPage() {
   // Use messages from state for rendering
   const displayMessages = messages;
 
+  //transactions
+  const {
+    writeContract: approve,
+    isSuccess: approvalSuccess,
+    isError: approvalError,
+  } = useWriteContract();
+  const {
+    writeContract: depositToken,
+    isSuccess: depositSuccess,
+    isError: depositError,
+  } = useWriteContract();
+
   // Render a single message
   const renderMessage = (message: Message, idx: number) => {
     const isUser = !message.isAgent;
@@ -107,8 +133,8 @@ export default function StrategyPage() {
       "content" in message
         ? String(message.content)
         : "text" in message
-        ? String(message.text)
-        : "";
+          ? String(message.text)
+          : "";
     const messageId = "id" in message ? String(message.id) : `msg-${idx}`;
     const isLoading =
       "isLoading" in message ? Boolean(message.isLoading) : false;
@@ -156,78 +182,133 @@ export default function StrategyPage() {
   // Ensure agent is added to a dynamic channel before chat starts
   useEffect(() => {
     if (!address) {
-      console.log('[StrategyPage] No wallet address available, waiting before creating channel');
+      console.log(
+        "[StrategyPage] No wallet address available, waiting before creating channel",
+      );
       return;
     }
-    
-    console.log('[StrategyPage] Getting dynamic channel for agent', contextId);
-    
+
+    console.log("[StrategyPage] Getting dynamic channel for agent", contextId);
+
     let isMounted = true; // Flag to handle component unmount
-    
+
     // Get a dynamic channel ID for this session
-    apiClient.addAgentToDynamicChannel(contextId).then((result) => {
-      if (!isMounted) return; // Don't update state if component unmounted
-      
-      if (result?.data?.channelId) {
-        const channelId = result.data.channelId as UUID;
-        console.log(`[StrategyPage] SUCCESS! Created dynamic channel: ${channelId} for agent ${contextId}`);
-        
-        // Update state with the new channel ID
-        console.log(`[StrategyPage] BEFORE setting dynamicChannelId state to: ${channelId}`);
-        // Set state and force re-render
-        setDynamicChannelId(channelId);
-        
-        // State update is asynchronous
-        console.log(`[StrategyPage] AFTER setting dynamicChannelId state to: ${channelId}, current value:`, dynamicChannelId);
-        
-        // We need to log after the next render to verify the state was updated
-        setTimeout(() => {
-          console.log(`[StrategyPage] NEXT TICK: dynamicChannelId is now:`, dynamicChannelId);
-        }, 0);
-        
-        // Verify agent was added to the channel
-        console.log(`[StrategyPage] Agent ${contextId} should now be listening on channel ${channelId}`);
-        
-        // Additional debug information
-        console.log(`[StrategyPage] Current User Address: ${address}`);
-        
-        // VERIFICATION: Check if agent is really in the channel
-        apiClient.getAgentsForChannel(channelId).then(result => {
-          console.log(`[StrategyPage] Agents active in channel ${channelId}:`, result?.data?.participants);
-          
-          // Is our agent in the list?
-          const isAgentActive = result?.data?.participants?.includes(contextId);
-          console.log(`[StrategyPage] Is agent ${contextId} active in channel? ${isAgentActive}`);
-          
-          if (!isAgentActive) {
-            console.error(`[StrategyPage] AGENT NOT FOUND IN CHANNEL! This would explain missing responses`);
-          }
-        }).catch(error => {
-          console.error(`[StrategyPage] Error verifying agents in channel:`, error);
-        });
-        
-        // VERIFICATION: Check agent's runtime status
-        apiClient.getAgent(contextId).then(agentData => {
-          console.log(`[StrategyPage] Agent ${contextId} status:`, agentData?.data?.status);
-          
-          // Log the agent status without direct string comparison to avoid type errors
-          console.log(`[StrategyPage] AGENT STATUS: ${agentData?.data?.status} - should be "running" to respond`);
-          
-          // Just check if it's not truthy or contains 'running' string to detect issues
-          if (!agentData?.data?.status || !String(agentData?.data?.status).toLowerCase().includes('running')) {
-            console.error(`[StrategyPage] AGENT MAY NOT BE RUNNING! Status: ${agentData?.data?.status}`);
-          }
-        }).catch(error => {
-          console.error(`[StrategyPage] Error getting agent status:`, error);
-        });
-      } else {
-        console.error('[StrategyPage] Failed to get dynamic channel ID from API response', result);
-      }
-    }).catch(error => {
-      if (!isMounted) return; // Don't process errors if component unmounted
-      console.error('[StrategyPage] Error adding agent to dynamic channel:', error);
-    });
-    
+    apiClient
+      .addAgentToDynamicChannel(contextId)
+      .then((result) => {
+        if (!isMounted) return; // Don't update state if component unmounted
+
+        if (result?.data?.channelId) {
+          const channelId = result.data.channelId as UUID;
+          console.log(
+            `[StrategyPage] SUCCESS! Created dynamic channel: ${channelId} for agent ${contextId}`,
+          );
+
+          // Update state with the new channel ID
+          console.log(
+            `[StrategyPage] BEFORE setting dynamicChannelId state to: ${channelId}`,
+          );
+          // Set state and force re-render
+          setDynamicChannelId(channelId);
+
+          // State update is asynchronous
+          console.log(
+            `[StrategyPage] AFTER setting dynamicChannelId state to: ${channelId}, current value:`,
+            dynamicChannelId,
+          );
+
+          // We need to log after the next render to verify the state was updated
+          setTimeout(() => {
+            console.log(
+              `[StrategyPage] NEXT TICK: dynamicChannelId is now:`,
+              dynamicChannelId,
+            );
+          }, 0);
+
+          // Verify agent was added to the channel
+          console.log(
+            `[StrategyPage] Agent ${contextId} should now be listening on channel ${channelId}`,
+          );
+
+          // Additional debug information
+          console.log(`[StrategyPage] Current User Address: ${address}`);
+
+          // VERIFICATION: Check if agent is really in the channel
+          apiClient
+            .getAgentsForChannel(channelId)
+            .then((result) => {
+              console.log(
+                `[StrategyPage] Agents active in channel ${channelId}:`,
+                result?.data?.participants,
+              );
+
+              // Is our agent in the list?
+              const isAgentActive =
+                result?.data?.participants?.includes(contextId);
+              console.log(
+                `[StrategyPage] Is agent ${contextId} active in channel? ${isAgentActive}`,
+              );
+
+              if (!isAgentActive) {
+                console.error(
+                  `[StrategyPage] AGENT NOT FOUND IN CHANNEL! This would explain missing responses`,
+                );
+              }
+            })
+            .catch((error) => {
+              console.error(
+                `[StrategyPage] Error verifying agents in channel:`,
+                error,
+              );
+            });
+
+          // VERIFICATION: Check agent's runtime status
+          apiClient
+            .getAgent(contextId)
+            .then((agentData) => {
+              console.log(
+                `[StrategyPage] Agent ${contextId} status:`,
+                agentData?.data?.status,
+              );
+
+              // Log the agent status without direct string comparison to avoid type errors
+              console.log(
+                `[StrategyPage] AGENT STATUS: ${agentData?.data?.status} - should be "running" to respond`,
+              );
+
+              // Just check if it's not truthy or contains 'running' string to detect issues
+              if (
+                !agentData?.data?.status ||
+                !String(agentData?.data?.status)
+                  .toLowerCase()
+                  .includes("running")
+              ) {
+                console.error(
+                  `[StrategyPage] AGENT MAY NOT BE RUNNING! Status: ${agentData?.data?.status}`,
+                );
+              }
+            })
+            .catch((error) => {
+              console.error(
+                `[StrategyPage] Error getting agent status:`,
+                error,
+              );
+            });
+        } else {
+          console.error(
+            "[StrategyPage] Failed to get dynamic channel ID from API response",
+            result,
+          );
+        }
+      })
+      .catch((error) => {
+        if (!isMounted) return; // Don't process errors if component unmounted
+        console.error(
+          "[StrategyPage] Error adding agent to dynamic channel:",
+          error,
+        );
+      });
+
     // Cleanup function
     return () => {
       isMounted = false;
@@ -257,7 +338,7 @@ export default function StrategyPage() {
             source_type: "user",
             raw_message: message,
           },
-          dynamicChannelId // Use the dynamic channel ID for the message
+          dynamicChannelId, // Use the dynamic channel ID for the message
         );
       }
     }
@@ -277,116 +358,204 @@ export default function StrategyPage() {
     }
   }, [displayMessages]);
 
-  // if (!mounted) return null;
+  useEffect(() => {
+    approvalSuccess && proceedToDeposit();
+  }, [approvalSuccess]);
+  useEffect(() => {
+    depositSuccess && trxDone();
+  }, [depositSuccess]);
 
+  useEffect(() => {
+    approvalError &&
+      toast({
+        title: "Approval Error",
+        description: "An error occurred while approving the transaction.",
+        variant: "destructive",
+      });
+    depositError &&
+      toast({
+        title: "Deposit Error",
+        description: "An error occurred while depositing funds.",
+        variant: "destructive",
+      });
+
+    if (approvalError || depositError) setIsDepositing(false);
+  }, [approvalError, depositError]);
   // Handle deposit and move to strategy generation
-  const handleDeposit = async () => {
-    if (!depositAmount || parseFloat(depositAmount) <= 0 || !dynamicChannelId) return;
+  // Utility functions for handleDeposit
+  const generateUuid =
+    (): `${string}-${string}-${string}-${string}-${string}` => {
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      }) as `${string}-${string}-${string}-${string}-${string}`;
+    };
 
+  const addressToUuid = (
+    addr: string | undefined,
+  ): `${string}-${string}-${string}-${string}-${string}` => {
+    if (!addr) return "00000000-0000-0000-0000-000000000000";
+    if (addr.startsWith("0x")) {
+      const hash = addr.slice(2).padEnd(32, "0");
+      return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(
+        12,
+        16,
+      )}-${hash.slice(16, 20)}-${hash.slice(20, 32)}` as const;
+    }
+    return addr as `${string}-${string}-${string}-${string}-${string}`;
+  };
+
+  const mapRiskLevel = (level: string | null): number => {
+    const riskLevelMap: Record<string, number> = {
+      Low: 0,
+      Medium: 1,
+      High: 2,
+    };
+    return level && level in riskLevelMap ? riskLevelMap[level] : 1; // Default to Medium
+  };
+
+  // Handle token approval process
+  const handleTokenApproval = async (amount: string): Promise<boolean> => {
+    const parsedAmount = parseUnits(amount, 6);
     try {
-      // First check and approve tokens if needed
-      const needsApproval = await checkAllowance(depositAmount);
+      approve({
+        abi: ERC20_ABI,
+        address: getContractAddress("USDC", chainId) as `0x${string}`,
+        functionName: "approve",
+        args: [
+          getContractAddress("CrossMindVault", chainId) as `0x${string}`,
+          parsedAmount,
+        ],
+      });
 
-      if (needsApproval) {
-        await approveToken(depositAmount);
-      }
+      return true;
+    } catch (error) {
+      console.error("Token approval error:", error);
+      return false;
+      setIsDepositing(false);
+    }
+  };
 
-      // Then deposit
-      await deposit(depositAmount);
+  // Send chat message about deposit
+  const sendDepositChatMessage = async (
+    amount: string,
+    riskLevelStr: string | null,
+  ): Promise<void> => {
+    const serverId =
+      "00000000-0000-0000-0000-000000000000" as `${string}-${string}-${string}-${string}-${string}`;
+    const message = `I've deposited ${amount} USDC. I'd like a ${riskLevelStr} risk strategy. Can you help me create one?`;
+    const tempId = generateUuid();
+    const senderId = addressToUuid(address);
 
-      // Move to next step
-      setCurrentStep("generate");
+    // Add message to UI immediately
+    const userMessage: Message = {
+      id: tempId as `${string}-${string}-${string}-${string}-${string}`,
+      content: message,
+      isAgent: false,
+      name: "You",
+      senderId,
+      channelId: dynamicChannelId!,
+      serverId,
+      createdAt: Date.now(),
+      isLoading: true,
+    };
 
-      // Send message to Zoya about successful deposit
-      // Define channel and server IDs with proper UUID format
-     
-      const serverId =
-        "00000000-0000-0000-0000-000000000000" as `${string}-${string}-${string}-${string}-${string}`;
-      const message = `I've deposited ${depositAmount} USDC. I'd like a ${riskLevel} risk strategy. Can you help me create one?`;
-      // Generate a UUID v4 compliant ID
-      const generateUuid =
-        (): `${string}-${string}-${string}-${string}-${string}` => {
-          return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-            /[xy]/g,
-            (c) => {
-              const r = (Math.random() * 16) | 0;
-              const v = c === "x" ? r : (r & 0x3) | 0x8;
-              return v.toString(16);
-            }
-          ) as `${string}-${string}-${string}-${string}-${string}`;
-        };
+    setMessages((prev) => [...prev, userMessage]);
 
-      const tempId = generateUuid();
-
-      // Convert address to UUID format if it's an Ethereum address
-      const getSenderId = (
-        addr: string | undefined
-      ): `${string}-${string}-${string}-${string}-${string}` => {
-        if (!addr) return "00000000-0000-0000-0000-000000000000";
-        if (addr.startsWith("0x")) {
-          // Convert first 32 chars of hash to UUID format
-          const hash = addr.slice(2).padEnd(32, "0");
-          return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(
-            12,
-            16
-          )}-${hash.slice(16, 20)}-${hash.slice(20, 32)}` as const;
-        }
-        return addr as `${string}-${string}-${string}-${string}-${string}`;
-      };
-
-      const senderId = getSenderId(address);
-
-      // Add the message to the UI immediately
-      // Create message with proper typing
-      const userMessage: Message = {
-        id: tempId as `${string}-${string}-${string}-${string}-${string}`,
-        content: message,
-        isAgent: false,
-        name: "You",
-        senderId: senderId,
-        channelId: dynamicChannelId,
-        serverId: serverId,
-        createdAt: Date.now(),
-        isLoading: true,
-      };
-
-      setMessages((prev) => [...prev, userMessage]);
-
-      // Send the message via socket
-      if (sendMessage) {
-        sendMessage(
+    // Send via socket
+    if (sendMessage) {
+      try {
+        await sendMessage(
           message,
           serverId,
           "user",
           undefined,
           tempId,
           {
-            channel_id: dynamicChannelId,
+            channel_id: dynamicChannelId!,
             server_id: serverId,
             author_id: senderId,
             content: message,
             source_type: "user",
             raw_message: message,
           },
-          dynamicChannelId
-        ).catch((error) => {
-          console.error("Error sending deposit message:", error);
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === tempId
-                ? { ...msg, error: "Failed to send message", isLoading: false }
-                : msg
-            )
-          );
-        });
+          dynamicChannelId!,
+        );
+      } catch (error) {
+        console.error("Error sending deposit message:", error);
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? {
+                  ...msg,
+                  error: "Failed to send message",
+                  isLoading: false,
+                }
+              : msg,
+          ),
+        );
       }
-    } catch (error: unknown) {
+    }
+  };
+
+  const proceedToDeposit = async () => {
+    // Process deposit with mapped risk level
+    const numericRiskLevel = mapRiskLevel(riskLevel);
+
+    const parsedAmount = parseUnits(depositAmount, 6);
+    console.log("Depositing", parsedAmount, "with risk level", riskLevel);
+
+    depositToken({
+      abi: ABIS.CrossMindVault,
+      address: getContractAddress("CrossMindVault", chainId) as `0x${string}`,
+      functionName: "deposit",
+      args: [parsedAmount, numericRiskLevel],
+    });
+  };
+
+  const trxDone = async () => {
+    try {
+      // Deposit successful - move to next step
+      setCurrentStep("generate");
+
+      // Send chat message about successful deposit
+      await sendDepositChatMessage(depositAmount, riskLevel);
+    } catch (error) {
       console.error("Deposit error:", error);
       if (error instanceof Error) {
         handleSendErrorMessage(error);
       } else {
         handleUnknownError();
       }
+    }
+  };
+  // Main deposit handler function - optimized with extracted utilities
+  const handleDeposit = async () => {
+    // Early validation
+    if (!depositAmount || parseFloat(depositAmount) <= 0 || !dynamicChannelId) {
+      return;
+    }
+    try {
+      setIsDepositing(true);
+      // Check if token approval is needed
+      const hasEnoughAllowance = await checkAllowance(depositAmount, 6);
+      const needsApproval = !hasEnoughAllowance;
+
+      console.log(
+        "Has enough allowance:",
+        hasEnoughAllowance,
+        "Needs approval:",
+        needsApproval,
+      );
+      // Handle approval if needed
+      if (needsApproval) {
+        await handleTokenApproval(depositAmount);
+      } else {
+        proceedToDeposit();
+      }
+    } catch (error: unknown) {
+      setIsDepositing(false);
     }
   };
 
@@ -410,7 +579,7 @@ export default function StrategyPage() {
           source_type: "user",
           raw_message: errorMessage,
         },
-        dynamicChannelId
+        dynamicChannelId,
       );
     }
   };
@@ -435,7 +604,7 @@ export default function StrategyPage() {
           source_type: "user",
           raw_message: errorMessage,
         },
-        dynamicChannelId
+        dynamicChannelId,
       );
     }
   };
@@ -488,7 +657,7 @@ export default function StrategyPage() {
           source_type: "user",
           raw_message: userInput,
         },
-        dynamicChannelId
+        dynamicChannelId, // Use the dynamic channel ID for the message
       ); // Pass the dynamicChannelId as override
 
       // If we're in generate step, check if user is requesting strategy generation
@@ -507,8 +676,8 @@ export default function StrategyPage() {
         prev.map((msg) =>
           msg.id === tempId
             ? { ...msg, error: "Failed to send message", isLoading: false }
-            : msg
-        )
+            : msg,
+        ),
       );
     }
   };
@@ -555,7 +724,7 @@ export default function StrategyPage() {
           source_type: "user",
           raw_message: `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
         },
-        dynamicChannelId
+        dynamicChannelId,
       );
     }
   };

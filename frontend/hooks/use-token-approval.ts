@@ -8,9 +8,9 @@ import {
 import { parseUnits } from "viem";
 import { useToast } from "@/components/ui/use-toast";
 import { getContractAddress } from "@/lib/contracts/addresses";
-
+import { avalancheFuji } from "wagmi/chains";
 // Standard ERC20 ABI for approval and allowance functions
-const ERC20_ABI = [
+export const ERC20_ABI = [
   {
     inputs: [
       { internalType: "address", name: "owner", type: "address" },
@@ -45,7 +45,7 @@ export function useTokenApproval(tokenAddress?: `0x${string}`) {
   const [isCheckingAllowance, setIsCheckingAllowance] = useState(false);
 
   // Get the vault contract address
-  const vaultAddress = getContractAddress("CrossMindVault", 1); // Default to Ethereum mainnet
+  const vaultAddress = getContractAddress("CrossMindVault", avalancheFuji.id);
 
   // Check token allowance
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
@@ -75,7 +75,7 @@ export function useTokenApproval(tokenAddress?: `0x${string}`) {
 
   // Check if the allowance is sufficient for a given amount
   const checkAllowance = useCallback(
-    async (amount: string, decimals: number = 18) => {
+    async (amount: string, decimals: number = 6) => {
       if (!address || !vaultAddress || !tokenAddress) {
         return false;
       }
@@ -93,24 +93,28 @@ export function useTokenApproval(tokenAddress?: `0x${string}`) {
         return false;
       }
     },
-    [address, vaultAddress, tokenAddress, refetchAllowance]
+    [address, vaultAddress, tokenAddress, refetchAllowance],
   );
 
   // Approve tokens for the vault
   const approveTokens = useCallback(
-    async (amount: string, decimals: number = 18) => {
+    async (amount: string, decimals: number = 6) => {
       if (!address || !vaultAddress || !tokenAddress) {
         toast({
           title: "Approval failed",
           description: "Missing wallet connection or contract addresses",
           variant: "destructive",
         });
-        return null;
+        return {
+          success: false,
+          error: "Missing wallet connection or contract addresses",
+        };
       }
 
       try {
         const parsedAmount = parseUnits(amount, decimals);
 
+        // Submit approval transaction
         const hash = await writeContract({
           address: tokenAddress,
           abi: ERC20_ABI,
@@ -123,17 +127,33 @@ export function useTokenApproval(tokenAddress?: `0x${string}`) {
           description: "Please wait for the transaction to be confirmed",
         });
 
-        return hash;
+        // Instead of waiting for the receipt in a complicated way, simply return the hash
+        // and let the useWaitForTransactionReceipt hook do its work
+        console.log("Approval transaction hash:", hash);
+
+        // Return a simpler structure
+        return { success: true, hash };
       } catch (error: any) {
         toast({
           title: "Approval failed",
           description: error.message || "An unknown error occurred",
           variant: "destructive",
         });
-        return null;
+        return {
+          success: false,
+          error: error.message || "An unknown error occurred",
+        };
       }
     },
-    [address, vaultAddress, tokenAddress, writeContract, toast]
+    [
+      address,
+      vaultAddress,
+      tokenAddress,
+      writeContract,
+      toast,
+      approvalReceipt,
+      approvalConfirmError,
+    ],
   );
 
   // Approve maximum tokens (infinite approval)
@@ -150,7 +170,7 @@ export function useTokenApproval(tokenAddress?: `0x${string}`) {
     try {
       // Max uint256 value for infinite approval
       const maxUint256 = BigInt(
-        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       );
 
       const hash = await writeContract({
@@ -178,22 +198,15 @@ export function useTokenApproval(tokenAddress?: `0x${string}`) {
 
   return {
     // Allowance data
-    allowance,
-    isCheckingAllowance,
     checkAllowance,
-    refetchAllowance,
-
-    // Approval functions
     approveTokens,
     approveMaxTokens,
-
-    // Approval transaction state
-    isApprovalPending: isApprovalPending || isApprovalConfirming,
+    isChecking: isCheckingAllowance,
+    isPending: isApprovalPending || isApprovalConfirming,
+    isError: !!approvalError || !!approvalConfirmError,
+    error: approvalError || approvalConfirmError,
     isApprovalSuccess,
-    approvalError: approvalError || approvalConfirmError,
-    approvalTransaction: {
-      hash: approvalHash,
-      receipt: approvalReceipt,
-    },
+    approvalHash,
+    approvalReceipt,
   };
 }
