@@ -5,6 +5,7 @@ import { useAccount, useWriteContract } from "wagmi";
 import type { UiMessage } from "@/hooks/use-query-hooks";
 import { ChannelType, UUID } from "@elizaos/core";
 import { apiClient } from "@/lib/api";
+import { safeAddressToUuid } from "@/lib/address-to-uuid";
 import { WalletConnectionWrapper } from "@/components/shared/wallet-connection-wrapper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,7 +78,7 @@ export default function StrategyPage() {
   // Don't use empty string fallback - let hook properly handle undefined state
   const socketChat = useSocketChat({
     channelId: dynamicChannelId,
-    currentUserId: address || "00000000-0000-0000-0000-000000000000",
+    currentUserId: safeAddressToUuid(address) as UUID,
     contextId: "2e7fded5-6c90-0786-93e9-40e713a5e19d" as const,
     chatType: ChannelType.DM,
     allAgents: [],
@@ -129,12 +130,26 @@ export default function StrategyPage() {
   // Render a single message
   const renderMessage = (message: Message, idx: number) => {
     const isUser = !message.isAgent;
+
+    // Debug message properties to identify issues
+    console.log(`Rendering message ${idx}:`, {
+      id: message.id,
+      isAgent: message.isAgent,
+      hasContent: "content" in message,
+      hasText: "text" in message,
+      contentValue: "content" in message ? message.content : null,
+      textValue: "text" in message ? message.text : null,
+      keys: Object.keys(message),
+    });
+
+    // Extract content from either content or text property
     const content =
-      "content" in message
+      "content" in message && message.content
         ? String(message.content)
-        : "text" in message
+        : "text" in message && message.text
           ? String(message.text)
           : "";
+
     const messageId = "id" in message ? String(message.id) : `msg-${idx}`;
     const isLoading =
       "isLoading" in message ? Boolean(message.isLoading) : false;
@@ -175,6 +190,7 @@ export default function StrategyPage() {
     return (
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {displayMessages.map((message, idx) => renderMessage(message, idx))}
+        <div ref={messagesEndRef} />
       </div>
     );
   };
@@ -194,7 +210,7 @@ export default function StrategyPage() {
 
     // Get a dynamic channel ID for this session
     apiClient
-      .addAgentToDynamicChannel(contextId)
+      .addAgentToDynamicChannel(contextId, safeAddressToUuid(address) as UUID)
       .then((result) => {
         if (!isMounted) return; // Don't update state if component unmounted
 
@@ -333,7 +349,7 @@ export default function StrategyPage() {
           {
             channel_id: dynamicChannelId,
             server_id: serverId,
-            author_id: address,
+            author_id: safeAddressToUuid(address),
             content: message,
             source_type: "user",
             raw_message: message,
@@ -444,24 +460,24 @@ export default function StrategyPage() {
   ): Promise<void> => {
     const serverId =
       "00000000-0000-0000-0000-000000000000" as `${string}-${string}-${string}-${string}-${string}`;
-    const message = `I've deposited ${amount} USDC. I'd like a ${riskLevelStr} risk strategy. Can you help me create one?`;
+    const message = `I've deposited ${amount} USDC from address ${address}. I'd like a ${riskLevelStr} risk strategy. Can you help me create one?`;
     const tempId = generateUuid();
-    const senderId = addressToUuid(address);
+    const senderId = safeAddressToUuid(address);
 
-    // Add message to UI immediately
-    const userMessage: Message = {
-      id: tempId as `${string}-${string}-${string}-${string}-${string}`,
-      content: message,
-      isAgent: false,
-      name: "You",
-      senderId,
-      channelId: dynamicChannelId!,
-      serverId,
-      createdAt: Date.now(),
-      isLoading: true,
-    };
+    // // Add message to UI immediately
+    // const userMessage: Message = {
+    //   id: tempId as `${string}-${string}-${string}-${string}-${string}`,
+    //   content: message,
+    //   isAgent: false,
+    //   name: "You",
+    //   senderId,
+    //   channelId: dynamicChannelId!,
+    //   serverId,
+    //   createdAt: Date.now(),
+    //   isLoading: true,
+    // };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // setMessages((prev) => [...prev, userMessage]);
 
     // Send via socket
     if (sendMessage) {
@@ -471,7 +487,7 @@ export default function StrategyPage() {
           serverId,
           "user",
           undefined,
-          tempId,
+          `temp-${Date.now()}`,
           {
             channel_id: dynamicChannelId!,
             server_id: serverId,
@@ -565,22 +581,38 @@ export default function StrategyPage() {
     const errorMessage = `I'm having trouble with my deposit. Error: ${error.message}`;
 
     if (address && dynamicChannelId && sendMessage) {
+      const senderId = safeAddressToUuid(address) as UUID;
+      const tempId = `temp-${Date.now()}`;
+
       sendMessage(
         errorMessage,
         serverId,
         "user",
         undefined,
-        `temp-${Date.now()}`,
+        tempId,
         {
           channel_id: dynamicChannelId,
           server_id: serverId,
-          author_id: address,
+          author_id: senderId,
           content: errorMessage,
           source_type: "user",
           raw_message: errorMessage,
         },
         dynamicChannelId,
-      );
+      ).catch((error) => {
+        console.error("Error sending error message:", error);
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? {
+                  ...msg,
+                  error: "Failed to send message",
+                  isLoading: false,
+                }
+              : msg,
+          ),
+        );
+      });
     }
   };
 
@@ -590,22 +622,34 @@ export default function StrategyPage() {
     const errorMessage = "I'm having trouble with my deposit. Unknown error.";
 
     if (address && dynamicChannelId && sendMessage) {
+      const senderId = safeAddressToUuid(address) as UUID;
+      const tempId = `temp-${Date.now()}`;
+
       sendMessage(
         errorMessage,
         serverId,
         "user",
         undefined,
-        `temp-${Date.now()}`,
+        tempId,
         {
           channel_id: dynamicChannelId,
           server_id: serverId,
-          author_id: address,
+          author_id: senderId,
           content: errorMessage,
           source_type: "user",
           raw_message: errorMessage,
         },
         dynamicChannelId,
-      );
+      ).catch((error) => {
+        console.error("Error sending unknown error message:", error);
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? { ...msg, error: "Failed to send message", isLoading: false }
+              : msg,
+          ),
+        );
+      });
     }
   };
 
@@ -615,31 +659,9 @@ export default function StrategyPage() {
       return;
 
     // Create a temporary message ID in UUID format
-    const tempId = `00000000-0000-0000-0000-${Date.now()
-      .toString()
-      .padStart(12, "0")}` as const;
+    const tempId = `temp-${Date.now()}`;
     const serverId = "00000000-0000-0000-0000-000000000000" as const;
-    const senderId = (
-      address.startsWith("0x")
-        ? `00000000-0000-0000-0000-${address.slice(2).padStart(12, "0")}`
-        : address
-    ) as `${string}-${string}-${string}-${string}-${string}`;
-
-    // Add the message to the UI immediately
-    const userMessage: Message = {
-      id: tempId,
-      content: userInput,
-      isAgent: false,
-      name: "You",
-      senderId: senderId,
-      channelId: dynamicChannelId,
-      serverId: serverId,
-      createdAt: Date.now(),
-      isLoading: true,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setUserInput("");
+    const senderId = safeAddressToUuid(address) as UUID;
 
     try {
       // Send the message via socket
@@ -659,6 +681,7 @@ export default function StrategyPage() {
         },
         dynamicChannelId, // Use the dynamic channel ID for the message
       ); // Pass the dynamicChannelId as override
+      setUserInput("");
 
       // If we're in generate step, check if user is requesting strategy generation
       if (
@@ -675,29 +698,16 @@ export default function StrategyPage() {
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === tempId
-            ? { ...msg, error: "Failed to send message", isLoading: false }
+            ? {
+                ...msg,
+                error: "Failed to send message",
+                isLoading: false,
+              }
             : msg,
         ),
       );
     }
   };
-
-  // Risk level options with descriptions
-  const riskLevels = [
-    {
-      value: "Low",
-      description:
-        "Prioritizes capital preservation with conservative allocation",
-    },
-    {
-      value: "Medium",
-      description: "Balanced approach with moderate yield potential",
-    },
-    {
-      value: "High",
-      description: "Focuses on maximizing returns with higher volatility",
-    },
-  ];
 
   // Handle risk level change
   const handleRiskChange = (level: "Low" | "Medium" | "High") => {
@@ -710,6 +720,8 @@ export default function StrategyPage() {
     ) {
       const serverId = "00000000-0000-0000-0000-000000000000" as const;
       const tempId = `temp-${Date.now()}`;
+      const senderId = safeAddressToUuid(address);
+
       sendMessage(
         `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
         serverId,
@@ -719,7 +731,7 @@ export default function StrategyPage() {
         {
           channel_id: dynamicChannelId,
           server_id: serverId,
-          author_id: address,
+          author_id: senderId,
           content: `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
           source_type: "user",
           raw_message: `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
@@ -732,8 +744,8 @@ export default function StrategyPage() {
   // Render the chat interface with Zoya
   function renderZoyaChat() {
     return (
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2">
+      <Card className="flex flex-col h-full">
+        <CardHeader className="flex flex-row items-center gap-2 flex-shrink-0">
           <Brain className="h-5 w-5 text-primary" />
           <div>
             <CardTitle>Zoya - AI Strategy Advisor</CardTitle>
@@ -742,16 +754,27 @@ export default function StrategyPage() {
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">{renderMessages()}</CardContent>
-        <CardFooter>
+        <CardContent className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full overflow-y-auto space-y-4 pr-2">
+            {renderMessages()}
+          </div>
+        </CardContent>
+        <CardFooter className="flex-shrink-0">
           <div className="flex w-full gap-2">
             <Input
               placeholder="Ask Zoya about investment strategies..."
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+              className="resize-none"
             />
-            <Button onClick={handleSendMessage}>Send</Button>
+            <Button
+              onClick={handleSendMessage}
+              disabled={!userInput.trim()}
+              size="sm"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
         </CardFooter>
       </Card>
@@ -786,7 +809,6 @@ export default function StrategyPage() {
                   onChange={(e) => setDepositAmount(e.target.value)}
                   className="flex-1"
                 />
-                <Button onClick={() => setDepositAmount(balance)}>Max</Button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Available Balance: {balance || 0} USDC
@@ -808,7 +830,23 @@ export default function StrategyPage() {
                   <TabsTrigger value="Medium">Medium</TabsTrigger>
                   <TabsTrigger value="High">High</TabsTrigger>
                 </TabsList>
-                {riskLevels.map((level) => (
+                {[
+                  {
+                    value: "Low",
+                    description:
+                      "Prioritizes capital preservation with conservative allocation",
+                  },
+                  {
+                    value: "Medium",
+                    description:
+                      "Balanced approach with moderate yield potential",
+                  },
+                  {
+                    value: "High",
+                    description:
+                      "Focuses on maximizing returns with higher volatility",
+                  },
+                ].map((level) => (
                   <TabsContent key={level.value} value={level.value}>
                     <p className="text-sm text-muted-foreground">
                       {level.description}
@@ -849,62 +887,73 @@ export default function StrategyPage() {
   // Render main content based on current step
   function renderContent() {
     return (
-      <div className="container py-8">
-        <h1 className="text-2xl font-bold mb-1">Strategy Creation</h1>
-        <p className="text-muted-foreground mb-6">
-          Deposit funds and let Zoya generate an optimized cross-chain
-          investment strategy
-        </p>
+      <div className="flex flex-col h-full min-h-0">
+        <div className="flex-shrink-0 p-6 border-b">
+          <h1 className="text-2xl font-bold mb-1">Strategy Creation</h1>
+          <p className="text-muted-foreground mb-6">
+            Deposit funds and let Zoya generate an optimized cross-chain
+            investment strategy
+          </p>
 
-        <div className="flex flex-col gap-2 mb-8">
-          <div className="flex items-center">
-            <div
-              className={`rounded-full ${
-                currentStep === "deposit" ? "bg-primary text-white" : "bg-muted"
-              } h-8 w-8 flex items-center justify-center text-sm`}
-            >
-              1
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center">
+              <div
+                className={`rounded-full ${
+                  currentStep === "deposit"
+                    ? "bg-primary text-white"
+                    : "bg-muted"
+                } h-8 w-8 flex items-center justify-center text-sm`}
+              >
+                1
+              </div>
+              <div className="h-[2px] w-8 bg-muted mx-1"></div>
+              <div
+                className={`rounded-full ${
+                  currentStep === "generate"
+                    ? "bg-primary text-white"
+                    : "bg-muted"
+                } h-8 w-8 flex items-center justify-center text-sm`}
+              >
+                2
+              </div>
+              <div className="h-[2px] w-8 bg-muted mx-1"></div>
+              <div
+                className={`rounded-full ${
+                  currentStep === "approve"
+                    ? "bg-primary text-white"
+                    : "bg-muted"
+                } h-8 w-8 flex items-center justify-center text-sm`}
+              >
+                3
+              </div>
             </div>
-            <div className="h-[2px] w-8 bg-muted mx-1"></div>
-            <div
-              className={`rounded-full ${
-                currentStep === "generate"
-                  ? "bg-primary text-white"
-                  : "bg-muted"
-              } h-8 w-8 flex items-center justify-center text-sm`}
-            >
-              2
+            <div className="flex text-xs">
+              <span className="w-8 text-center">Deposit</span>
+              <span className="w-8"></span>
+              <span className="w-8 text-center">Chat</span>
+              <span className="w-8"></span>
+              <span className="w-8 text-center">Approve</span>
             </div>
-            <div className="h-[2px] w-8 bg-muted mx-1"></div>
-            <div
-              className={`rounded-full ${
-                currentStep === "approve" ? "bg-primary text-white" : "bg-muted"
-              } h-8 w-8 flex items-center justify-center text-sm`}
-            >
-              3
-            </div>
-          </div>
-          <div className="flex text-xs">
-            <span className="w-8 text-center">Deposit</span>
-            <span className="w-8"></span>
-            <span className="w-8 text-center">Chat</span>
-            <span className="w-8"></span>
-            <span className="w-8 text-center">Approve</span>
           </div>
         </div>
 
-        {currentStep === "deposit" && renderDepositStep()}
-        {(currentStep === "generate" ||
-          currentStep === "approve" ||
-          currentStep === "execute") &&
-          renderZoyaChat()}
+        <div className="flex-1 min-h-0 p-6">
+          {currentStep === "deposit" && renderDepositStep()}
+          {(currentStep === "generate" ||
+            currentStep === "approve" ||
+            currentStep === "execute") && (
+            <div className="h-full">{renderZoyaChat()}</div>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
     <WalletConnectionWrapper>
-      <div className="animate-in fade-in duration-300">{renderContent()}</div>
+      <div className="h-screen flex flex-col animate-in fade-in duration-300">
+        {renderContent()}
+      </div>
     </WalletConnectionWrapper>
   );
 }

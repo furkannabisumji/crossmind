@@ -93,13 +93,26 @@ export async function POST(req, { params }) {
           console.log(`[API Proxy] Failed to get servers, using default: ${serversErr.message}`);
         }
         
+          const currentUserId = url.searchParams.get('currentUserId') || 'a7d55bf7-ad76-4f70-a6bb-c93ee7fa5625'; // Default user ID
         // Create a new channel with the required fields
-        const createResponse = await axios.post(`${API_BASE_URL}/messaging/channels`, {
-          messageServerId: serverId,
-          name: dynamicChannelName,
-          type: 'group',
-          description: `Dynamic channel created for session ${requestId}`
-        });
+           const createResponse = await axios.post(`${API_BASE_URL}/messaging/channels`, {
+             name: `Chat - ${new Date().toLocaleDateString('en-US', { 
+               month: 'short', 
+               day: '2-digit', 
+               hour: '2-digit', 
+               minute: '2-digit', 
+               second: '2-digit' 
+             })}`,
+             type: 'DM', // This is the key change - DM instead of group
+             messageServerId: '00000000-0000-0000-0000-000000000000',
+             metadata: {
+               isDm: true,
+               user1: currentUserId,
+               user2: agentId,
+               forAgent: agentId,
+               createdAt: new Date().toISOString()
+             }
+           });
         
         const newChannel = createResponse.data?.data?.channel;
         if (newChannel?.id) {
