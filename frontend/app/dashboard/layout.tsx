@@ -57,7 +57,7 @@ export default function DashboardLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen">
       {/* Desktop Sidebar */}
       <div
         className={cn(
@@ -106,9 +106,9 @@ export default function DashboardLayout({
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 h-screen overflow-hidden flex flex-col">
         {/* Mobile navigation */}
-        <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur md:hidden">
+        <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur md:hidden flex-shrink-0">
           <div className="flex h-16 items-center gap-4 px-4">
             <Sheet>
               <SheetTrigger asChild>
@@ -144,7 +144,9 @@ export default function DashboardLayout({
             <span className="text-lg font-semibold">Dashboard</span>
           </div>
         </div>
-        {children}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {children}
+        </div>
       </main>
     </div>
   );
