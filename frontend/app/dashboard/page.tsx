@@ -41,7 +41,7 @@ export default function DashboardPage() {
       { id: "portfolio", label: "Portfolio" },
       { id: "transactions", label: "Transactions" },
     ],
-    []
+    [],
   );
 
   // Safely access wallet context with proper type handling
@@ -105,7 +105,7 @@ export default function DashboardPage() {
 
     return (
       <WalletConnectionWrapper>
-        <div className="container py-8 animate-in fade-in duration-300">
+        <div className="container  animate-in fade-in duration-300">
           {/* Dashboard content */}
           <DashboardContent
             activeTab={activeTab}

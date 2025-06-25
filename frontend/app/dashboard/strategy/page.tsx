@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 // Use UiMessage directly since it already has all required fields
 type Message = UiMessage;
 
-import { Brain, ArrowRight, Loader2 } from "lucide-react";
+import { Brain, ArrowRight, Loader2, ExternalLink } from "lucide-react";
 import { ERC20_ABI, useTokenApproval } from "@/hooks/use-token-approval";
 import { useSocketChat } from "@/hooks/use-socket-chat";
 import { getContractAddress } from "@/lib/contracts/addresses";
@@ -46,7 +46,7 @@ export default function StrategyPage() {
     "deposit" | "generate" | "confirm"
   >("deposit");
   const [riskLevel, setRiskLevel] = useState<"Low" | "Medium" | "High" | "">(
-    ""
+    "",
   );
   const [selectedToken, setSelectedToken] = useState<string>("usdc");
   const [userInput, setUserInput] = useState("");
@@ -81,6 +81,8 @@ export default function StrategyPage() {
       index: number;
       amount: string;
       status: string;
+      chainId?: number; // Chain ID for CCIP Explorer link detection
+      txHash?: string; // Transaction hash for CCIP Explorer link
     }>
   >([]);
   const [strategyLoading, setStrategyLoading] = useState(false);
@@ -96,13 +98,13 @@ export default function StrategyPage() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
   const { checkAllowance } = useTokenApproval(
-    getContractAddress("USDC", chainId)
+    getContractAddress("USDC", chainId),
   );
 
   // Strategy Manager contract hooks
   const strategyManagerAddress = getContractAddress(
     "StrategyManager",
-    chainId
+    chainId,
   ) as `0x${string}`;
 
   const { data: userStrategies, isLoading: loadingStrategies } =
@@ -135,6 +137,18 @@ export default function StrategyPage() {
     return statusMap[statusCode as keyof typeof statusMap] || "UNKNOWN";
   };
 
+  // Utility function to generate CCIP Explorer links
+  const getCcipExplorerLink = (txHash: string, chainId: number) => {
+    // Avalanche mainnet chainId is 43114
+    // Avalanche fuji testnet chainId is 43113
+    if (chainId === 43114 || chainId === 43113) {
+      return null; // No CCIP link needed for AVAX
+    }
+
+    // CCIP Explorer base URL
+    return `https://ccip.chain.link/msg/${txHash}`;
+  };
+
   // Process user strategies data from contract
   const processUserStrategies = useCallback(() => {
     if (!userStrategies || !Array.isArray(userStrategies)) {
@@ -150,7 +164,7 @@ export default function StrategyPage() {
 
     // Filter to only include active strategies (REGISTERED or EXECUTED)
     const active = processedStrategies.filter(
-      (s) => s.status === "REGISTERED" || s.status === "EXECUTED"
+      (s) => s.status === "REGISTERED" || s.status === "EXECUTED",
     );
 
     setActiveStrategies(active);
@@ -183,7 +197,9 @@ export default function StrategyPage() {
     },
     onUpdateMessage: (messageId: string, updates: Partial<Message>) =>
       setMessages((prev) =>
-        prev.map((msg) => (msg.id === messageId ? { ...msg, ...updates } : msg))
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, ...updates } : msg,
+        ),
       ),
     onDeleteMessage: (messageId: string) =>
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId)),
@@ -288,7 +304,7 @@ export default function StrategyPage() {
 
   // Get strategy ID from transaction receipt
   const getStrategyIdFromTxHash = async (
-    txHash: string
+    txHash: string,
   ): Promise<number | null> => {
     if (!publicClient) {
       console.error("Public client not available");
@@ -322,7 +338,7 @@ export default function StrategyPage() {
 
       if (!receipt) {
         console.error(
-          "Failed to get transaction receipt after multiple attempts"
+          "Failed to get transaction receipt after multiple attempts",
         );
         return 0; // Return 0 as a default index for demo purposes
       }
@@ -340,7 +356,7 @@ export default function StrategyPage() {
             matches: addressMatches,
           });
           return addressMatches;
-        }
+        },
       );
 
       console.log("Found matching log:", log ? "yes" : "no");
@@ -359,7 +375,7 @@ export default function StrategyPage() {
           if (decoded.eventName === "StrategyRegistered") {
             console.log(
               "Found StrategyRegistered event with index:",
-              Number(decoded.args.index)
+              Number(decoded.args.index),
             );
             return Number(decoded.args.index);
           }
@@ -408,7 +424,6 @@ export default function StrategyPage() {
     console.log("Rejecting strategy:", strategyId, strategyIndex);
 
     try {
-  
       try {
         confirmStrategy({
           address: strategyManagerAddress,
@@ -417,9 +432,8 @@ export default function StrategyPage() {
           args: [BigInt(strategyIndex), false],
         } as any);
 
-            // Remove from pending strategies
-      setPendingStrategies((prev) => prev.filter((s) => s.id !== strategyId));
-
+        // Remove from pending strategies
+        setPendingStrategies((prev) => prev.filter((s) => s.id !== strategyId));
       } catch (error) {
         console.error("Error rejecting strategy:", error);
         setIsConfirming(false);
@@ -453,7 +467,7 @@ export default function StrategyPage() {
   // Handle strategy exit
   const [isExiting, setIsExiting] = useState(false);
   const [exitingStrategyId, setExitingStrategyId] = useState<number | null>(
-    null
+    null,
   );
 
   useEffect(() => {
@@ -466,25 +480,39 @@ export default function StrategyPage() {
     }
   }, [exitError]);
 
-  const handleExitStrategy = (index: number) => {
+  const handleExitStrategy = async (index: number) => {
     if (!address) return;
 
     setIsExiting(true);
     setExitingStrategyId(index);
 
     try {
-      exitStrategy({
+      // Call exitStrategyRequest which initiates the cross-chain exit process
+      const tx = await exitStrategy({
         address: strategyManagerAddress,
         abi: ABIS.StrategyManager,
-        functionName: "exitStrategy",
+        functionName: "exitStrategyRequest", // Correct function name
         args: [BigInt(index)],
       } as any);
+
+      // Update strategy status to show it's being processed
+      setActiveStrategies((prev) =>
+        prev.map((s) => (s.index === index ? { ...s, status: "EXITING" } : s)),
+      );
+
+      toast({
+        title: "Exit Requested",
+        description:
+          "Your exit request has been submitted and is being processed across all chains.",
+      });
     } catch (error) {
       console.error("Error exiting strategy:", error);
       setIsExiting(false);
+      setExitingStrategyId(null);
       toast({
         title: "Exit Error",
-        description: "There was an error exiting your strategy.",
+        description:
+          "There was an error processing your exit request. Please try again.",
         variant: "destructive",
       });
     }
@@ -510,10 +538,10 @@ export default function StrategyPage() {
       "content" in message && message.content
         ? String(message.content)
         : "text" in message && message.text
-        ? String(message.text)
-        : message.contentValue
-        ? String(message.contentValue)
-        : "";
+          ? String(message.text)
+          : message.contentValue
+            ? String(message.contentValue)
+            : "";
 
     if (!content) {
       console.warn(`Message ${idx} has no content:`, message);
@@ -525,7 +553,7 @@ export default function StrategyPage() {
     const hasStrategy = txHash && !isUser;
 
     // If this is a strategy message, find the corresponding pending strategy
-    let strategyData = null;
+    let strategyData: any = null;
     if (hasStrategy) {
       strategyData = pendingStrategies.find((s) => s.txHash === txHash);
     }
@@ -559,7 +587,7 @@ export default function StrategyPage() {
       const finalText = processedText.includes("<li>")
         ? processedText.replace(
             /(<li>.*<\/li>)/g,
-            '<ul class="list-disc list-inside ml-4 space-y-1">$1</ul>'
+            '<ul class="list-disc list-inside ml-4 space-y-1">$1</ul>',
           )
         : processedText;
 
@@ -676,7 +704,7 @@ export default function StrategyPage() {
   useEffect(() => {
     if (!address) {
       console.log(
-        "[StrategyPage] No wallet address available, waiting before creating channel"
+        "[StrategyPage] No wallet address available, waiting before creating channel",
       );
       return;
     }
@@ -699,7 +727,7 @@ export default function StrategyPage() {
           setTimeout(() => {
             console.log(
               `[StrategyPage] NEXT TICK: dynamicChannelId is now:`,
-              dynamicChannelId
+              dynamicChannelId,
             );
           }, 0);
 
@@ -709,26 +737,26 @@ export default function StrategyPage() {
             .then((result) => {
               console.log(
                 `[StrategyPage] Agents active in channel ${channelId}:`,
-                result?.data?.participants
+                result?.data?.participants,
               );
 
               // Is our agent in the list?
               const isAgentActive =
                 result?.data?.participants?.includes(contextId);
               console.log(
-                `[StrategyPage] Is agent ${contextId} active in channel? ${isAgentActive}`
+                `[StrategyPage] Is agent ${contextId} active in channel? ${isAgentActive}`,
               );
 
               if (!isAgentActive) {
                 console.error(
-                  `[StrategyPage] AGENT NOT FOUND IN CHANNEL! This would explain missing responses`
+                  `[StrategyPage] AGENT NOT FOUND IN CHANNEL! This would explain missing responses`,
                 );
               }
             })
             .catch((error) => {
               console.error(
                 `[StrategyPage] Error verifying agents in channel:`,
-                error
+                error,
               );
             });
 
@@ -738,12 +766,12 @@ export default function StrategyPage() {
             .then((agentData) => {
               console.log(
                 `[StrategyPage] Agent ${contextId} status:`,
-                agentData?.data?.status
+                agentData?.data?.status,
               );
 
               // Log the agent status without direct string comparison to avoid type errors
               console.log(
-                `[StrategyPage] AGENT STATUS: ${agentData?.data?.status} - should be "running" to respond`
+                `[StrategyPage] AGENT STATUS: ${agentData?.data?.status} - should be "running" to respond`,
               );
 
               // Just check if it's not truthy or contains 'running' string to detect issues
@@ -754,20 +782,20 @@ export default function StrategyPage() {
                   .includes("running")
               ) {
                 console.error(
-                  `[StrategyPage] AGENT MAY NOT BE RUNNING! Status: ${agentData?.data?.status}`
+                  `[StrategyPage] AGENT MAY NOT BE RUNNING! Status: ${agentData?.data?.status}`,
                 );
               }
             })
             .catch((error) => {
               console.error(
                 `[StrategyPage] Error getting agent status:`,
-                error
+                error,
               );
             });
         } else {
           console.error(
             "[StrategyPage] Failed to get dynamic channel ID from API response",
-            result
+            result,
           );
         }
       })
@@ -775,7 +803,7 @@ export default function StrategyPage() {
         if (!isMounted) return; // Don't process errors if component unmounted
         console.error(
           "[StrategyPage] Error adding agent to dynamic channel:",
-          error
+          error,
         );
       });
 
@@ -808,7 +836,7 @@ export default function StrategyPage() {
             source_type: "user",
             raw_message: message,
           },
-          dynamicChannelId // Use the dynamic channel ID for the message
+          dynamicChannelId, // Use the dynamic channel ID for the message
         );
       }
     }
@@ -846,6 +874,18 @@ export default function StrategyPage() {
   }, [displayMessages]);
 
   useEffect(() => {
+    if (exitSuccess) {
+      // Update UI after successful exit
+      setIsExiting(false);
+      toast({
+        title: "Strategy Exited",
+        description: "Your strategy has been exited successfully.",
+        variant: "default",
+      });
+    }
+  }, [exitSuccess]);
+
+  useEffect(() => {
     approvalSuccess && proceedToDeposit();
   }, [approvalSuccess]);
   useEffect(() => {
@@ -865,7 +905,7 @@ export default function StrategyPage() {
       // Remove from pending strategies
       if (selectedStrategy !== null) {
         setPendingStrategies((prev) =>
-          prev.filter((strategy) => strategy.id !== selectedStrategy)
+          prev.filter((strategy) => strategy.id !== selectedStrategy),
         );
         setSelectedStrategy(null);
       }
@@ -935,10 +975,9 @@ export default function StrategyPage() {
   // Send chat message about deposit
   const sendDepositChatMessage = async (
     amount: string,
-    riskLevelStr: string | null
+    riskLevelStr: string | null,
   ): Promise<void> => {
-    const serverId =
-      "00000000-0000-0000-0000-000000000000" as `${string}-${string}-${string}-${string}-${string}`;
+    const serverId = "00000000-0000-0000-0000-000000000000" as const;
     const message = `I've deposited ${amount} USDC from address ${address}. I'd like a ${riskLevelStr} risk strategy. Can you help me create one?`;
     const tempId = `temp-${Date.now()}`;
     const senderId = safeAddressToUuid(address);
@@ -960,7 +999,7 @@ export default function StrategyPage() {
             source_type: "user",
             raw_message: message,
           },
-          dynamicChannelId!
+          dynamicChannelId!,
         );
       } catch (error) {
         console.error("Error sending deposit message:", error);
@@ -972,8 +1011,8 @@ export default function StrategyPage() {
                   error: "Failed to send message",
                   isLoading: false,
                 }
-              : msg
-          )
+              : msg,
+          ),
         );
       }
     }
@@ -1027,7 +1066,7 @@ export default function StrategyPage() {
         "Has enough allowance:",
         hasEnoughAllowance,
         "Needs approval:",
-        needsApproval
+        needsApproval,
       );
       // Handle approval if needed
       if (needsApproval) {
@@ -1063,7 +1102,7 @@ export default function StrategyPage() {
           source_type: "user",
           raw_message: errorMessage,
         },
-        dynamicChannelId!
+        dynamicChannelId!,
       ).catch((error) => {
         console.error("Error sending error message:", error);
         setMessages((prev) =>
@@ -1074,8 +1113,8 @@ export default function StrategyPage() {
                   error: "Failed to send message",
                   isLoading: false,
                 }
-              : msg
-          )
+              : msg,
+          ),
         );
       });
     }
@@ -1104,15 +1143,15 @@ export default function StrategyPage() {
           source_type: "user",
           raw_message: errorMessage,
         },
-        dynamicChannelId!
+        dynamicChannelId!,
       ).catch((error) => {
         console.error("Error sending unknown error message:", error);
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === tempId
               ? { ...msg, error: "Failed to send message", isLoading: false }
-              : msg
-          )
+              : msg,
+          ),
         );
       });
     }
@@ -1144,7 +1183,7 @@ export default function StrategyPage() {
           source_type: "user",
           raw_message: userInput,
         },
-        dynamicChannelId // Use the dynamic channel ID for the message
+        dynamicChannelId, // Use the dynamic channel ID for the message
       ); // Pass the dynamicChannelId as override
       setUserInput("");
     } catch (error) {
@@ -1158,8 +1197,8 @@ export default function StrategyPage() {
                 error: "Failed to send message",
                 isLoading: false,
               }
-            : msg
-        )
+            : msg,
+        ),
       );
     }
   };
@@ -1191,7 +1230,7 @@ export default function StrategyPage() {
           source_type: "user",
           raw_message: `I'd like to adjust my risk profile to ${level} for my investment strategy.`,
         },
-        dynamicChannelId
+        dynamicChannelId,
       );
     }
   };
@@ -1199,8 +1238,8 @@ export default function StrategyPage() {
   // Render the chat interface with Zoya
   function renderZoyaChat() {
     return (
-      <Card className="flex flex-col h-full">
-        <CardHeader className="flex flex-row items-center gap-2 flex-shrink-0">
+      <Card className="flex flex-col h-[90vh] bg-transparent">
+        <CardHeader className="flex flex-row h-[20%] items-center gap-2 flex-shrink-0">
           <Brain className="h-5 w-5 text-primary" />
           <div>
             <CardTitle>Zoya - AI Strategy Advisor</CardTitle>
@@ -1209,7 +1248,7 @@ export default function StrategyPage() {
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 min-h-0 overflow-hidden p-0">
+        <CardContent className="h-[70%]  overflow-hidden p-0">
           <div
             className="h-full overflow-y-auto space-y-4 p-4"
             ref={chatContainerRef}
@@ -1238,7 +1277,7 @@ export default function StrategyPage() {
             <div ref={messagesEndRef} />
           </div>
         </CardContent>
-        <CardFooter className="flex-shrink-0 bg-background border-t p-4 sticky bottom-0">
+        <CardFooter className="flex-shrink-0 bg-background border-t p-4 h-[10%]">
           <div className="flex w-full gap-2">
             <Input
               ref={inputRef}
@@ -1251,8 +1290,8 @@ export default function StrategyPage() {
             />
             <Button
               onClick={handleSendMessage}
-              disabled={!userInput.trim() || isAgentTyping}
-              size="sm"
+              disabled={!userInput.trim() || isInputDisabled}
+              size="icon"
             >
               {isAgentTyping ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1507,7 +1546,35 @@ export default function StrategyPage() {
                         <span className="text-muted-foreground">Amount:</span>{" "}
                         {strategy.amount} USDC
                       </div>
+                      <div>
+                        <span className="text-muted-foreground">Status:</span>{" "}
+                        {strategy.status}
+                      </div>
                     </div>
+                    {/* CCIP Explorer Link for cross-chain transactions */}
+                    {strategy.txHash &&
+                      strategy.chainId &&
+                      getCcipExplorerLink(
+                        strategy.txHash,
+                        strategy.chainId,
+                      ) && (
+                        <div className="mt-3 pt-3 border-t">
+                          <a
+                            href={
+                              getCcipExplorerLink(
+                                strategy.txHash,
+                                strategy.chainId,
+                              )!
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs flex items-center text-primary hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            View Cross-Chain Transaction on CCIP Explorer
+                          </a>
+                        </div>
+                      )}
                   </CardContent>
                   <CardFooter>
                     <Button
@@ -1552,18 +1619,31 @@ export default function StrategyPage() {
         <div className="flex-1 min-h-0">
           <Tabs
             value={activeTab}
-            onValueChange={setActiveTab}
+            onValueChange={(value) => {
+              setActiveTab(value);
+              // When switching to chat tab, automatically set to generate step
+              if (value === "chat") {
+                setCurrentStep("generate");
+                // Focus input after tab switch
+                setTimeout(() => {
+                  inputRef.current?.focus();
+                }, 100);
+              }
+            }}
             className="h-full"
           >
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="deposit">Deposit & Generate</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="deposit">Deposit</TabsTrigger>
+              <TabsTrigger value="chat">Chat with Zoya</TabsTrigger>
               <TabsTrigger value="active">Active Strategies</TabsTrigger>
             </TabsList>
-            <TabsContent value="deposit" className="h-full mt-6">
-              {currentStep === "deposit" && renderDepositStep()}
-              {currentStep === "generate" && renderZoyaChat()}
+            <TabsContent value="deposit" className="flex-1 min-h-0 mt-6">
+              {renderDepositStep()}
             </TabsContent>
-            <TabsContent value="active" className="h-full mt-6">
+            <TabsContent value="chat" className="flex-1 min-h-0 mt-6">
+              {renderZoyaChat()}
+            </TabsContent>
+            <TabsContent value="active" className="flex-1 min-h-0 mt-6">
               {renderActiveStrategies()}
             </TabsContent>
           </Tabs>
@@ -1662,7 +1742,7 @@ export default function StrategyPage() {
 
   return (
     <WalletConnectionWrapper>
-      <div className="h-screen flex flex-col animate-in fade-in duration-300">
+      <div className=" h-full  flex-col animate-in fade-in duration-300">
         {renderContent()}
       </div>
     </WalletConnectionWrapper>
