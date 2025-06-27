@@ -45,6 +45,7 @@ contract ConfirmStrategyScript is Script {
         StrategyManager.Strategy memory strategy;
         strategy.index = 0;
         strategy.amount = 10000000; // 10 USDC
+        strategy.status = StrategyManager.Status.REGISTERED;
         strategy.deposits = chainDeposits;
         console2.log("strategy.index:");
         console2.logUint(strategy.index);
