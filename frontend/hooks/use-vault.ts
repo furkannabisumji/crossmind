@@ -89,19 +89,23 @@ export function useVault() {
 
   // Handle deposit
   const deposit = useCallback(
-    async (amount: string, decimals: number = 18) => {
+    async (amount: string, decimals: number = 6, riskLevel: number = 1) => {
       if (!address) {
         toast({
           title: "Wallet not connected",
           description: "Please connect your wallet to deposit funds.",
           variant: "destructive",
         });
-        return;
+        return {
+          success: false,
+          error: "Wallet not connected",
+        };
       }
 
       try {
         const parsedAmount = parseUnits(amount, decimals);
-        const tx = await depositAsync({ args: [parsedAmount] });
+        console.log("Depositing", parsedAmount, "with risk level", riskLevel);
+        const tx = await depositAsync({ args: [parsedAmount, riskLevel] });
 
         // Wait for transaction confirmation
         if (depositTransaction.isSuccess) {
@@ -114,7 +118,16 @@ export function useVault() {
             description: `Successfully deposited ${amount} tokens.`,
           });
 
-          return tx;
+          return {
+            success: true,
+            transaction: tx,
+          };
+        } else {
+          return {
+            success: false,
+            error: "Transaction did not complete successfully",
+            transaction: tx,
+          };
         }
       } catch (error: any) {
         toast({
@@ -122,7 +135,10 @@ export function useVault() {
           description: error.message || "An unknown error occurred",
           variant: "destructive",
         });
-        return null;
+        return {
+          success: false,
+          error: error.message || "An unknown error occurred",
+        };
       }
     },
     [
@@ -137,7 +153,7 @@ export function useVault() {
 
   // Handle withdrawal
   const withdraw = useCallback(
-    async (amount: string, decimals: number = 18) => {
+    async (amount: string, decimals: number = 6) => {
       if (!address) {
         toast({
           title: "Wallet not connected",

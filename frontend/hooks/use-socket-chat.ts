@@ -69,6 +69,17 @@ export function useSocketChat({
         return;
       }
 
+      // Validate required fields before proceeding
+      if (!currentUserId) {
+        clientLogger.error("[useSocketChat] Cannot send message: currentUserId is undefined");
+        return;
+      }
+
+      if (!text || text.trim() === "") {
+        clientLogger.error("[useSocketChat] Cannot send message: text content is empty");
+        return;
+      }
+
       // Add metadata for DM channels
       const messageMetadata = {
         ...metadata,
@@ -88,10 +99,19 @@ export function useSocketChat({
         clientLogger.debug(`[useSocketChat] Payload values check: channel_id=${channelIdToUse}, server_id=${serverId}, author_id=${currentUserId}, content=${!!text}`);
         
         // Ensure all required fields are defined to avoid 400 errors
-        // Convert any undefined values to empty strings to prevent missing field errors
-        const safeChannelId = channelIdToUse || "";
+        const safeChannelId = channelIdToUse;
         const safeServerId = serverId || "00000000-0000-0000-0000-000000000000";
-        const safeContent = text || "";
+        const safeContent = text.trim();
+        
+        // Additional validation before API call
+        if (!safeChannelId || !currentUserId || !safeContent) {
+          clientLogger.error("[useSocketChat] Cannot send message: missing required fields", {
+            channelId: !!safeChannelId,
+            currentUserId: !!currentUserId,
+            content: !!safeContent
+          });
+          return;
+        }
         
         // API compatibility: Backend validation requires agent ID for author_id field
         // Enhanced metadata preserves actual user attribution information
@@ -106,7 +126,7 @@ export function useSocketChat({
         const restPayload = {
           channel_id: safeChannelId,
           server_id: safeServerId,
-          author_id: contextId,         // Agent ID required by backend validation
+          author_id: currentUserId,         // Use current user ID for user messages
           content: safeContent,
           source_type: "user",          // Source attribution for UI rendering
           raw_message: JSON.stringify({
@@ -255,10 +275,19 @@ export function useSocketChat({
         // Determine if this is from an agent using multiple signals
         const isFromAgent = (
           // Primary check: Different sender ID from current user
-          data.senderId !== currentUserId || 
-          // Secondary checks to handle conflicting metadata
-          data.senderName === "Agent" ||
-          (contextId && data.senderId === contextId)
+          data.senderId !== currentUserId && (
+            // Secondary checks for when sender is not current user
+            data.senderName === "Agent" ||
+            data.senderName === "Zoya" ||
+            (contextId && data.senderId === contextId) ||
+            data.source === "agent_response"
+          )
+        ) || (
+          // Fallback: if senderId matches current user but other signals indicate agent
+          // This handles edge cases where senderId might be incorrectly set
+          data.senderId === currentUserId &&
+          data.source === "agent_response" &&
+          (data.senderName === "Agent" || data.senderName === "Zoya")
         );
         
         // Log detailed message classification for debugging

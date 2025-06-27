@@ -35,37 +35,46 @@ export function useAgentManagement() {
   const [stoppingAgents, setStoppingAgents] = useState<UUID[]>([]);
 
   /**
-   * Create a channel for agent communication if needed
+   * Create a DM channel for agent communication if needed
    */
-  const ensureAgentChannel = async (): Promise<UUID> => {
+  const ensureAgentChannel = async (agentId: UUID, currentUserId: UUID): Promise<UUID> => {
     // Use existing channel ID if we have one
     if (AGENT_CHANNEL_ID) {
       return AGENT_CHANNEL_ID as UUID; // Type assertion since we've checked it's not null
     }
 
     try {
-      clientLogger.info('Creating channel for agent communication');
-      const result = await apiClient.createChannel({
-        messageServerId: MESSAGE_SERVER_ID,
-        name: 'Agent Communication Channel',
-        type: 'group'
-      });
+      clientLogger.info(`Creating DM channel for agent communication between user ${currentUserId} and agent ${agentId}`);
       
-      if (result?.data?.channel?.id) {
-        AGENT_CHANNEL_ID = result.data.channel.id;
-        clientLogger.info(`Created new channel for agents: ${AGENT_CHANNEL_ID}`);
+      // Use the DM channel creation API that creates proper DM metadata
+      const result = await apiClient.getOrCreateDmChannel(agentId, currentUserId);
+      
+      if (result?.data?.id) {
+        AGENT_CHANNEL_ID = result.data.id;
+        clientLogger.info(`Created new DM channel for agent: ${AGENT_CHANNEL_ID}`);
         return AGENT_CHANNEL_ID;
       }
       
-      // This will only happen if channel creation failed but didn't throw an error
-      throw new Error('Channel creation failed: no ID returned');
-    } catch (error) {
-      clientLogger.error('Failed to create channel:', error);
-      // We must have a channel ID to continue
-      if (AGENT_CHANNEL_ID) {
+      // Fallback: try the create-agent-channel endpoint that now creates DM channels
+      clientLogger.info('Fallback to create-agent-channel endpoint');
+      const fallbackResult = await fetch(`/api/create-agent-channel?agentId=${agentId}&currentUserId=${currentUserId}`);
+      const fallbackData = await fallbackResult.json();
+      
+      if (fallbackData?.success && fallbackData?.channelId) {
+        AGENT_CHANNEL_ID = fallbackData.channelId;
+        clientLogger.info(`Created DM channel via fallback: ${AGENT_CHANNEL_ID}`);
         return AGENT_CHANNEL_ID as UUID;
       }
-      throw new Error('No channel available for agent communication');
+      
+      // This will only happen if both methods failed
+      throw new Error('DM channel creation failed: no ID returned from either method');
+    } catch (error) {
+      clientLogger.error('Failed to create DM channel:', error);
+      // We must have a channel ID to continue
+      if (AGENT_CHANNEL_ID !== null) {
+        return AGENT_CHANNEL_ID as UUID;
+      }
+      throw new Error('No DM channel available for agent communication');
     }
   };
 

@@ -31,11 +31,7 @@ const sidebarNavItems = [
     href: "/dashboard",
     icon: <LayoutDashboard className="h-5 w-5" />,
   },
-  {
-    title: "Deposit",
-    href: "/dashboard/deposit",
-    icon: <CreditCard className="h-5 w-5" />,
-  },
+
   {
     title: "Strategy",
     href: "/dashboard/strategy",
@@ -57,12 +53,12 @@ export default function DashboardLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-full overflow-hidden">
       {/* Desktop Sidebar */}
       <div
         className={cn(
           "relative hidden border-r bg-card transition-all duration-300 md:block",
-          isCollapsed ? "w-16" : "w-64"
+          isCollapsed ? "w-16" : "w-64",
         )}
       >
         <div className="sticky top-0">
@@ -81,7 +77,7 @@ export default function DashboardLayout({
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
                     pathname === item.href
                       ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground"
+                      : "text-muted-foreground",
                   )}
                 >
                   {item.icon}
@@ -106,9 +102,9 @@ export default function DashboardLayout({
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile navigation */}
-        <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur md:hidden">
+        <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur md:hidden flex-shrink-0">
           <div className="flex h-16 items-center gap-4 px-4">
             <Sheet>
               <SheetTrigger asChild>
@@ -130,7 +126,7 @@ export default function DashboardLayout({
                           "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
                           pathname === item.href
                             ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground"
+                            : "text-muted-foreground",
                         )}
                       >
                         {item.icon}
@@ -144,7 +140,7 @@ export default function DashboardLayout({
             <span className="text-lg font-semibold">Dashboard</span>
           </div>
         </div>
-        {children}
+        <div className="flex-1 overflow-auto">{children}</div>
       </main>
     </div>
   );

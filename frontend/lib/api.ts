@@ -800,6 +800,7 @@ export const apiClient = {
   // in a single operation, using our consolidated API endpoint
   addAgentToDynamicChannel: (
     agentId: UUID,
+    currentUserId?: UUID,
   ): Promise<{
     success: boolean;
     data: { 
@@ -809,13 +810,13 @@ export const apiClient = {
       message?: string;
     };
   }> => {
-    clientLogger.info("Adding agent to dynamic channel", { agentId });
+    clientLogger.info("Adding agent to dynamic channel", { agentId, currentUserId });
     
-    // Use our consolidated API endpoint
+    // Use our consolidated API endpoint with currentUserId to create DM channel
     return internalFetcher({
-      url: `/api/add-agent-to-channel`,
+      url: `/api/add-agent-to-channel?currentUserId=${currentUserId || ''}`,
       method: "POST",
-      body: { agentId },
+      body: { agentId, currentUserId },
     });
   },
 
