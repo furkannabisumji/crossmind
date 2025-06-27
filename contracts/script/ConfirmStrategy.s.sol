@@ -63,28 +63,18 @@ contract ConfirmStrategyScript is Script {
         StrategyManager.AdapterDeposit[]
             memory adapterDeposits = new StrategyManager.AdapterDeposit[](1);
         adapterDeposits[0] = StrategyManager.AdapterDeposit({
-            adapter: 0xB361aB7b925c8F094F16407702d6fD275534d981, // AaveV3Adapter من الـ JSON
+            adapter: 0x3cfc9AA161e825F2878Fa8B46AaC72Ae32673FfA, // Fuji AaveV3Adapter
             percentage: 100
         });
-        console2.log("adapterDeposits[0].adapter:");
-        console2.logAddress(adapterDeposits[0].adapter);
-        console2.log("adapterDeposits[0].percentage:");
-        console2.logUint(adapterDeposits[0].percentage);
 
         // إعداد Chain Deposits
         StrategyManager.ChainDeposit[]
             memory chainDeposits = new StrategyManager.ChainDeposit[](1);
         chainDeposits[0] = StrategyManager.ChainDeposit({
-            chainId: 11155111, // Sepolia
+            chainId: 43113, // Fuji - this will trigger cross-chain messaging from Sepolia
             amount: 10000000,
             deposits: adapterDeposits
         });
-        console2.log("chainDeposits[0].chainId:");
-        console2.logUint(chainDeposits[0].chainId);
-        console2.log("chainDeposits[0].amount:");
-        console2.logUint(chainDeposits[0].amount);
-        console2.log("chainDeposits[0].deposits.length:");
-        console2.logUint(chainDeposits[0].deposits.length);
 
         // إعداد Strategy باستخدام الفهرس الغير مقفل
         StrategyManager.Strategy memory strategy;
@@ -104,8 +94,6 @@ contract ConfirmStrategyScript is Script {
 
         console2.log("Strategy registered successfully for index:");
         console2.logUint(unlockedIndex);
-        console2.log("StrategyManager Address:");
-        console2.logAddress(strategyManagerAddress);
 
         // التحقق من تسجيل الاستراتيجية
         StrategyManager.Strategy[] memory userVaults = strategyManager
@@ -114,14 +102,34 @@ contract ConfirmStrategyScript is Script {
         console2.logUint(userVaults.length);
         require(userVaults.length > 0, "No strategies registered for user");
         
-        for (uint256 i = 0; i < userVaults.length; i++) {
-            console2.log("Strategy", i, ":");
-            console2.log("  Index:");
-            console2.logUint(userVaults[i].index);
-            console2.log("  Amount:");
-            console2.logUint(userVaults[i].amount);
-            console2.log("  Status:");
-            console2.logUint(uint256(userVaults[i].status));
+        // العثور على الاستراتيجية المسجلة حديثاً
+        uint256 strategyIndexInArray = userVaults.length - 1; // الاستراتيجية الأخيرة المسجلة
+        
+        console2.log("Strategy details:");
+        console2.log("  Array Index:", strategyIndexInArray);
+        console2.log("  Vault Index:", userVaults[strategyIndexInArray].index);
+        console2.log("  Amount:", userVaults[strategyIndexInArray].amount);
+        console2.log("  Status:", uint256(userVaults[strategyIndexInArray].status));
+
+        // **الآن تأكيد الاستراتيجية لتشغيل CCIP messaging**
+        console2.log("=== CONFIRMING STRATEGY TO TRIGGER CCIP ===");
+        
+        try strategyManager.confirmStrategy(strategyIndexInArray, true) {
+            console2.log("Strategy confirmed successfully!");
+            console2.log("CCIP messages should now be sent to cross-chain executors");
+            
+            // يمكن إضافة المزيد من المعلومات هنا حول الـ message IDs
+            // لكن لا يمكننا الحصول على message ID مباشرة من confirmStrategy
+            // لأنه لا يعيد قيمة. سنحتاج للاستماع للأحداث
+            
+        } catch Error(string memory reason) {
+            console2.log("Strategy confirmation failed:");
+            console2.log(reason);
+            revert(reason);
+        } catch (bytes memory lowLevelData) {
+            console2.log("Strategy confirmation failed with low level error");
+            console2.logBytes(lowLevelData);
+            revert("Low level confirmation error");
         }
 
         vm.stopBroadcast();
