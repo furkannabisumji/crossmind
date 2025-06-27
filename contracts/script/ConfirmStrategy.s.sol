@@ -14,6 +14,51 @@ contract ConfirmStrategyScript is Script {
         address strategyManagerAddress = 0x5488BF397b074d8Efee58F315c0a2f793FCCEd75;
         address user = 0x14D7795A2566Cd16eaA1419A26ddB643CE523655; // العنوان بتاعك
 
+        // بدء البث باستخدام الـ private key الصحيح
+        vm.startBroadcast(deployerPrivateKey);
+
+        StrategyManager strategyManager = StrategyManager(
+            strategyManagerAddress
+        );
+
+        // تحقق من وجود رصيد في الفولت قبل التسجيل
+        ICrossMindVault vaultContract = ICrossMindVault(
+            strategyManager.vault()
+        );
+        console2.log("Vault address from strategyManager:");
+        console2.logAddress(strategyManager.vault());
+        console2.log("User address for strategy:");
+        console2.logAddress(user);
+        ICrossMindVault.Balance[] memory balances = vaultContract.getBalance(
+            user
+        );
+        console2.log("User vault balances length:");
+        console2.logUint(balances.length);
+        require(
+            balances.length > 0,
+            "No vault balance for user. Please deposit first."
+        );
+
+        // البحث عن أول رصيد غير مقفل
+        uint256 unlockedIndex = type(uint256).max; // قيمة افتراضية تدل على عدم وجود رصيد غير مقفل
+        for (uint256 i = 0; i < balances.length; i++) {
+            console2.log("Balance index:");
+            console2.logUint(i);
+            console2.log("Balance amount:");
+            console2.logUint(balances[i].amount);
+            console2.log("Balance locked:");
+            console2.logBool(balances[i].locked);
+            
+            if (!balances[i].locked && balances[i].amount > 0) {
+                unlockedIndex = i;
+                console2.log("Found unlocked balance at index:");
+                console2.logUint(unlockedIndex);
+                break;
+            }
+        }
+        
+        require(unlockedIndex != type(uint256).max, "No unlocked balance found");
+
         // إعداد Adapter Deposits
         StrategyManager.AdapterDeposit[]
             memory adapterDeposits = new StrategyManager.AdapterDeposit[](1);
@@ -41,72 +86,43 @@ contract ConfirmStrategyScript is Script {
         console2.log("chainDeposits[0].deposits.length:");
         console2.logUint(chainDeposits[0].deposits.length);
 
-        // إعداد Strategy
+        // إعداد Strategy باستخدام الفهرس الغير مقفل
         StrategyManager.Strategy memory strategy;
-        strategy.index = 0;
-        strategy.amount = 10000000; // 10 USDC
+        strategy.index = unlockedIndex;
+        strategy.amount = balances[unlockedIndex].amount; // استخدام المبلغ الفعلي للرصيد
         strategy.status = StrategyManager.Status.REGISTERED;
         strategy.deposits = chainDeposits;
-        console2.log("strategy.index:");
+        
+        console2.log("Using strategy with:");
+        console2.log("Index:");
         console2.logUint(strategy.index);
-        console2.log("strategy.amount:");
+        console2.log("Amount:");
         console2.logUint(strategy.amount);
-        console2.log("strategy.deposits.length:");
-        console2.logUint(strategy.deposits.length);
 
-        // بدء البث باستخدام الـ private key الصحيح
-        vm.startBroadcast(deployerPrivateKey);
+        // تسجيل الاستراتيجية باستخدام الفهرس الصحيح
+        strategyManager.registerStrategy(strategy, unlockedIndex);
 
-        StrategyManager strategyManager = StrategyManager(
-            strategyManagerAddress
-        );
-
-        // تحقق من وجود رصيد في الفولت قبل التسجيل
-        ICrossMindVault vaultContract = ICrossMindVault(
-            strategyManager.vault()
-        );
-        console2.log("Vault address from strategyManager:");
-        console2.logAddress(strategyManager.vault());
-        console2.log("User address for strategy:");
-        console2.logAddress(user);
-        ICrossMindVault.Balance[] memory balances = vaultContract.getBalance(
-            user
-        );
-        console2.log("User vault balances length:");
-        console2.logUint(balances.length);
-        require(
-            balances.length > 0,
-            "No vault balance for user. Please deposit first."
-        );
-
-        // تسجيل الاستراتيجية
-        strategyManager.registerStrategy(strategy, 0);
-
-        console2.log("Strategy registered for index:");
-        console2.logUint(0);
+        console2.log("Strategy registered successfully for index:");
+        console2.logUint(unlockedIndex);
         console2.log("StrategyManager Address:");
         console2.logAddress(strategyManagerAddress);
 
+        // التحقق من تسجيل الاستراتيجية
         StrategyManager.Strategy[] memory userVaults = strategyManager
             .getVaults(user);
-        console2.log("userVaults.length:");
+        console2.log("userVaults.length after registration:");
         console2.logUint(userVaults.length);
         require(userVaults.length > 0, "No strategies registered for user");
+        
         for (uint256 i = 0; i < userVaults.length; i++) {
-            console2.log("Strategy index:");
+            console2.log("Strategy", i, ":");
+            console2.log("  Index:");
             console2.logUint(userVaults[i].index);
-            console2.log("Strategy amount:");
+            console2.log("  Amount:");
             console2.logUint(userVaults[i].amount);
-            console2.log("Strategy status:");
+            console2.log("  Status:");
             console2.logUint(uint256(userVaults[i].status));
-            require(
-                userVaults[i].deposits.length > 0,
-                "No deposits in strategy"
-            );
-            // Optionally print deposit details here
         }
-        uint256 index = 0; // Set index to 0 for confirmation
-        require(index < userVaults.length, "Index out of bounds");
 
         vm.stopBroadcast();
     }
