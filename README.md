@@ -6,91 +6,91 @@ CrossMind is an AI-powered autonomous DeFi agent that dynamically manages user f
 
 ## 📁 Project Structure
 
+```
 +--------------------------------------------------------------------------------------------------------------+
-| CROSSMIND TECHNICAL FLOW DIAGRAM |
+|                                          CROSSMIND TECHNICAL FLOW DIAGRAM                                     |
 +--------------------------------------------------------------------------------------------------------------+
 
-+-------------------+ +-------------------+ +-------------------+ +-------------------+
-| | | | | | | |
-| USER INTERFACE | | ZOYA AI ADVISOR | | BLOCKCHAIN LAYER | | EXTERNAL PROTOCOLS|
-| (Next.js App) | | (ElizaOS/AWS | | (Smart Contracts)| | |
-| | | Bedrock) | | | | |
-+--------+----------+ +---------+---------+ +--------+----------+ +---------+---------+
-| | | |
-| | | |
-v v v v
-+--------+----------+ +---------+---------+ +--------+----------+ +---------+---------+
-| | | | | | | |
-| - Wallet Connect +<----->+ - Socket.io Conn | | Ethereum Sepolia | | - Aave Protocol |
-| - USDC Deposit | | - NLP Processing | | +--------------+ | | - QuickSwap |
-| - Risk Selection | | - Strategy Gen | | |CrossMindVault| | | - Other DeFi |
-| - Strategy Display| | - API Endpoints | | +--------------+ | | Protocols |
-| | | | | |StrategyManager| | | |
-+-------------------+ +-------------------+ | +--------------+ | +-------------------+
-| | | |CrossChainExec | | |
-| | | +--------------+ | |
-+----------------------------+ | |AdapterRegistry| | |
-| | +--------------+ | |
-| +--------+----------+ |
-| | |
-| v |
-| +--------+----------+ |
-| | | |
-| | Avalanche Fuji | |
-| | +-------------+ | |
-| | |Receiver | | |
-| | +-------------+ | |
-| | |Protocol | | |
-| | |Adapters +---+-----------------+
-| | +-------------+ |
-| | |
-| +-------------------+
-|
-|
++-------------------+       +-------------------+        +-------------------+        +-------------------+
+|                   |       |                   |        |                   |        |                   |
+|  USER INTERFACE   |       |  ZOYA AI ADVISOR  |        |  BLOCKCHAIN LAYER |        | EXTERNAL PROTOCOLS|
+|  (Next.js App)    |       |  (ElizaOS/AWS     |        |  (Smart Contracts)|        |                   |
+|                   |       |   Bedrock)        |        |                   |        |                   |
++--------+----------+       +---------+---------+        +--------+----------+        +---------+---------+
+         |                            |                           |                             |
+         |                            |                           |                             |
+         v                            v                           v                             v
++--------+----------+       +--------+----------+        +--------+----------+        +---------+---------+
+|                   |       |                   |        |                   |        |                   |
+| - Wallet Connect  +<----->+ - Socket.io Conn  |        | Avalanche Fuji    |        | - Aave Protocol   |
+| - USDC Deposit    |       | - NLP Processing  |        | +--------------+  |        | - QuickSwap       |
+| - Risk Selection  |       | - Strategy Gen    |        | |CrossMindVault|  |        | - Other DeFi      |
+| - Strategy Display|       | - API Endpoints   |        | +--------------+  |        |   Protocols       |
+|                   |       |                   |        | |StrategyManager| |        |                   |
++-------------------+       +-------------------+        | +--------------+  |        +-------------------+
+         |                            |                  | |CrossChainExec |  |                 |
+         |                            |                  | +--------------+  |                 |
+         +----------------------------+                  | |AdapterRegistry| |                 |
+                    |                                    | +--------------+  |                 |
+                    |                                    +--------+----------+                 |
+                    |                                             |                            |
+                    |                                             v                            |
+                    |                                    +--------+----------+                 |
+                    |                                    |                   |                 |
+                    |                                    | Ethereum Sepolia  |                 |
+                    |                                    | +-------------+   |                 |
+                    |                                    | |Receiver     |   |                 |
+                    |                                    | +-------------+   |                 |
+                    |                                    | |Protocol     |   |                 |
+                    |                                    | |Adapters     +---+-----------------+
+                    |                                    | +-------------+   |
+                    |                                    |                   |
+                    |                                    +-------------------+
+                    |
+                    |
 +-------------------v-------------------------------------------+
-| |
-| DATA FLOW SEQUENCE |
-| |
-| 1. User connects wallet & deposits USDC |
-| Frontend -> CrossMindVault.deposit(amount, riskLevel) |
-| |
-| 2. User chats with Zoya AI |
-| Frontend -> Socket.io -> ElizaOS -> Socket.io -> Frontend |
-| |
-| 3. Zoya generates strategy |
-| ElizaOS -> Contract queries -> Strategy generation |
-| |
-| 4. User confirms strategy |
-| Frontend -> StrategyManager.confirmStrategy(strategyId) |
-| |
-| 5. Cross-chain execution |
-| StrategyManager -> CrossChainExecutor -> CCIP Router |
-| |
-| 6. Destination chain receives message |
-| CCIP Router -> Receiver Contract -> Protocol Adapters |
-| |
-| 7. Protocol interaction |
-| Adapters -> External DeFi protocols (Aave, etc.) |
-| |
-| 8. Status updates |
-| Contracts -> Events -> Frontend (status display) |
-| |
+|                                                               |
+|                    DATA FLOW SEQUENCE                         |
+|                                                               |
+| 1. User connects wallet & deposits USDC                       |
+|    Frontend -> CrossMindVault.deposit(amount, riskLevel)      |
+|                                                               |
+| 2. User chats with Zoya AI                                    |
+|    Frontend -> Socket.io -> ElizaOS -> Socket.io -> Frontend  |
+|                                                               |
+| 3. Zoya generates strategy                                    |
+|    ElizaOS -> Contract queries -> Strategy generation         |
+|                                                               |
+| 4. User confirms strategy                                     |
+|    Frontend -> StrategyManager.confirmStrategy(strategyId)    |
+|                                                               |
+| 5. Cross-chain execution                                      |
+|    StrategyManager -> CrossChainExecutor -> CCIP Router       |
+|                                                               |
+| 6. Destination chain receives message                         |
+|    CCIP Router -> Receiver Contract -> Protocol Adapters      |
+|                                                               |
+| 7. Protocol interaction                                       |
+|    Adapters -> External DeFi protocols (Aave, etc.)           |
+|                                                               |
+| 8. Status updates                                             |
+|    Contracts -> Events -> Frontend (status display)           |
+|                                                               |
 +---------------------------------------------------------------+
 
-+-------------------+ +-------------------+ +-------------------+
-| | | | | |
-| KEY TECHNOLOGIES | | SECURITY CONTROLS | | ERROR HANDLING |
-| | | | | |
-+-------------------+ +-------------------+ +-------------------+
-| - Next.js | | - Balance locking | | - Tx errors |
-| - ElizaOS | | - CCIP validation | | - CCIP failures |
-| - AWS Bedrock | | - Access controls | | - Strategy |
-| - Chainlink CCIP | | - Role-based auth | | validation |
-| - Socket.io | | - Adapter vetting | | - AI fallbacks |
-| - Wagmi/Viem | | | | |
-+-------------------+ +-------------------+ +-------------------+
-
----
++-------------------+       +-------------------+        +-------------------+
+|                   |       |                   |        |                   |
+|  KEY TECHNOLOGIES |       | SECURITY CONTROLS |        | ERROR HANDLING    |
+|                   |       |                   |        |                   |
++-------------------+       +-------------------+        +-------------------+
+| - Next.js         |       | - Balance locking |        | - Tx errors       |
+| - ElizaOS         |       | - CCIP validation |        | - CCIP failures   |
+| - AWS Bedrock     |       | - Access controls |        | - Strategy        |
+| - Chainlink CCIP  |       | - Role-based auth |        |   validation      |
+| - Socket.io       |       | - Adapter vetting |        | - AI fallbacks    |
+| - Wagmi/Viem      |       |                   |        |                   |
++-------------------+       +-------------------+        +-------------------+
+```
 
 ## 🧠 Core Features
 
