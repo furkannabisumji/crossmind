@@ -142,6 +142,13 @@ contract CrossChainExecutor is CCIPReceiver, OwnerIsCreator {
     event DebugLog(string message);
 
     /**
+     * Getter function to access the router address
+     */
+    function router() external view returns (address) {
+        return address(s_router);
+    }
+
+    /**
      * Allow the contract to receive AVAX/ETH for CCIP fees
      */
     receive() external payable {

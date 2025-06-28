@@ -8,8 +8,8 @@
   },
   "sepolia": {
     "CrossMindVault": "0xfA205DB4D93006837C0CAb69095bBB7d601c82E6",
-    "StrategyManager": "0x5488BF397b074d8Efee58F315c0a2f793FCCEd75",
-    "CrossChainExecutor": "0x82DCF4603a7f24aa6633B821fFC51032Cee21063",
+    "StrategyManager": "0x436b630550186555865F969b89803A76D18fAb2b",
+    "CrossChainExecutor": "0xd63dcf5091d3776d01d727b92d195cf54c10f0d2",
     "AdapterRegistry": "0x3014A74fd44017341dD471C73e9980D156c7Bc02",
     "AaveV3Adapter": "0xB361aB7b925c8F094F16407702d6fD275534d981"
   }
