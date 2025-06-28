@@ -14,6 +14,7 @@ import { NavigationMenu } from "@/components/navigation-menu";
 import { Toaster } from "@/components/ui/toaster";
 import { CSSStabilizer } from "@/components/css-stabilizer";
 import { ClientRainbowKitWrapper } from "@/components/providers/client-only-rainbow-kit";
+import { StrategyProvider } from "@/contexts/StrategyContext";
 
 export const metadata: Metadata = {
   title: "CrossMind - Autonomous Web3 Investment Agent",
@@ -36,13 +37,15 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <ClientRainbowKitWrapper>
             <WalletProvider>
-              <CSSStabilizer>
-                <div className="flex flex-col min-h-screen">
-                  <NavigationMenu />
-                  <main className="flex-1">{children}</main>
-                  <Toaster />
-                </div>
-              </CSSStabilizer>
+              <StrategyProvider>
+                <CSSStabilizer>
+                  <div className="flex flex-col min-h-screen">
+                    <NavigationMenu />
+                    <main className="flex-1">{children}</main>
+                    <Toaster />
+                  </div>
+                </CSSStabilizer>
+              </StrategyProvider>
             </WalletProvider>
           </ClientRainbowKitWrapper>
         </ThemeProvider>

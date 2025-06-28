@@ -27,16 +27,11 @@ import {
 
 const sidebarNavItems = [
   {
-    title: "Overview",
+    title: "Dashboard",
     href: "/dashboard",
     icon: <LayoutDashboard className="h-5 w-5" />,
   },
 
-  {
-    title: "Strategy",
-    href: "/dashboard/strategy",
-    icon: <Brain className="h-5 w-5" />,
-  },
   {
     title: "Settings",
     href: "/dashboard/settings",
@@ -58,7 +53,7 @@ export default function DashboardLayout({
       <div
         className={cn(
           "relative hidden border-r bg-card transition-all duration-300 md:block",
-          isCollapsed ? "w-16" : "w-64",
+          isCollapsed ? "w-16" : "w-64"
         )}
       >
         <div className="sticky top-0">
@@ -77,7 +72,7 @@ export default function DashboardLayout({
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
                     pathname === item.href
                       ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground",
+                      : "text-muted-foreground"
                   )}
                 >
                   {item.icon}
@@ -126,7 +121,7 @@ export default function DashboardLayout({
                           "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
                           pathname === item.href
                             ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground",
+                            : "text-muted-foreground"
                         )}
                       >
                         {item.icon}
