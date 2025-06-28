@@ -6,76 +6,89 @@ CrossMind is an AI-powered autonomous DeFi agent that dynamically manages user f
 
 ## 📁 Project Structure
 
-```bash
-crossmind-protocol/
-├── README.md                  # Project overview
-├── .env.example               # Environment variable sample
-├── foundry.toml               # Foundry config for smart contracts
-├── package.json               # Project dependencies and scripts
-├── tsconfig.json              # TypeScript config
-├── tailwind.config.js         # TailwindCSS config
-├── next.config.js             # Next.js config
++--------------------------------------------------------------------------------------------------------------+
+| CROSSMIND TECHNICAL FLOW DIAGRAM |
++--------------------------------------------------------------------------------------------------------------+
 
-├── contracts/                 # Smart Contracts (Foundry)
-│   ├── src/
-│   │   ├── CrossMindVault.sol       # Main vault contract
-│   │   ├── StrategyManager.sol      # DeFi strategy logic
-│   │   ├── ChainlinkConsumers.sol   # Chainlink integrations
-│   │   └── Interfaces.sol           # Interface declarations
-│   └── script/
-│       ├── Deploy.s.sol             # Deploy contracts script
-│       └── SetupChainlink.s.sol     # Setup Chainlink automation
++-------------------+ +-------------------+ +-------------------+ +-------------------+
+| | | | | | | |
+| USER INTERFACE | | ZOYA AI ADVISOR | | BLOCKCHAIN LAYER | | EXTERNAL PROTOCOLS|
+| (Next.js App) | | (ElizaOS/AWS | | (Smart Contracts)| | |
+| | | Bedrock) | | | | |
++--------+----------+ +---------+---------+ +--------+----------+ +---------+---------+
+| | | |
+| | | |
+v v v v
++--------+----------+ +---------+---------+ +--------+----------+ +---------+---------+
+| | | | | | | |
+| - Wallet Connect +<----->+ - Socket.io Conn | | Ethereum Sepolia | | - Aave Protocol |
+| - USDC Deposit | | - NLP Processing | | +--------------+ | | - QuickSwap |
+| - Risk Selection | | - Strategy Gen | | |CrossMindVault| | | - Other DeFi |
+| - Strategy Display| | - API Endpoints | | +--------------+ | | Protocols |
+| | | | | |StrategyManager| | | |
++-------------------+ +-------------------+ | +--------------+ | +-------------------+
+| | | |CrossChainExec | | |
+| | | +--------------+ | |
++----------------------------+ | |AdapterRegistry| | |
+| | +--------------+ | |
+| +--------+----------+ |
+| | |
+| v |
+| +--------+----------+ |
+| | | |
+| | Avalanche Fuji | |
+| | +-------------+ | |
+| | |Receiver | | |
+| | +-------------+ | |
+| | |Protocol | | |
+| | |Adapters +---+-----------------+
+| | +-------------+ |
+| | |
+| +-------------------+
+|
+|
++-------------------v-------------------------------------------+
+| |
+| DATA FLOW SEQUENCE |
+| |
+| 1. User connects wallet & deposits USDC |
+| Frontend -> CrossMindVault.deposit(amount, riskLevel) |
+| |
+| 2. User chats with Zoya AI |
+| Frontend -> Socket.io -> ElizaOS -> Socket.io -> Frontend |
+| |
+| 3. Zoya generates strategy |
+| ElizaOS -> Contract queries -> Strategy generation |
+| |
+| 4. User confirms strategy |
+| Frontend -> StrategyManager.confirmStrategy(strategyId) |
+| |
+| 5. Cross-chain execution |
+| StrategyManager -> CrossChainExecutor -> CCIP Router |
+| |
+| 6. Destination chain receives message |
+| CCIP Router -> Receiver Contract -> Protocol Adapters |
+| |
+| 7. Protocol interaction |
+| Adapters -> External DeFi protocols (Aave, etc.) |
+| |
+| 8. Status updates |
+| Contracts -> Events -> Frontend (status display) |
+| |
++---------------------------------------------------------------+
 
-├── frontend/                 # Frontend (Next.js + Tailwind)
-│   ├── app/
-│   │   ├── layout.tsx              # Global layout wrapper
-│   │   ├── page.tsx                # Landing page
-│   │   ├── deposit/page.tsx        # Deposit UI
-│   │   ├── dashboard/page.tsx      # Portfolio dashboard
-│   │   ├── strategies/page.tsx     # Strategy visualizer
-│   │   └── admin/page.tsx          # Admin control (optional)
-│   ├── components/                 # Shared UI components
-│   │   ├── WalletConnect.tsx
-│   │   ├── StrategyChart.tsx
-│   │   ├── AgentLog.tsx
-│   │   └── Loader.tsx
-│   ├── lib/
-│   │   ├── wagmi.ts                # Wagmi client setup
-│   │   └── utils.ts                # Helper utilities
-│   └── tailwind.config.ts
-
-├── backend/                  # API Server (Node.js + Express)
-│   ├── index.ts                   # Main server entry
-│   ├── routes/
-│   │   ├── deposit.ts             # Deposit handler
-│   │   ├── plan-strategy.ts       # AI strategy planner
-│   │   └── rebalance.ts           # Rebalancing trigger
-│   ├── services/
-│   │   ├── eliza.ts               # AWS Bedrock interaction
-│   │   ├── defi.ts                # DeFi execution (Aave, Lido, etc.)
-│   │   └── chainlink.ts           # Chainlink CCIP + Automation
-│   ├── db/
-│   │   └── dynamo.ts              # DynamoDB connector
-│   └── ai-agent/                  # AI agent layer
-│       ├── eliza.runtime.ts
-│       ├── bedrock-client.ts
-│       ├── planner.ts
-│       ├── memory.ts
-│       └── prompts/
-│           └── yield-optimizer.json
-
-├── chainlink/               # Chainlink messaging logic
-│   ├── upkeeps/                 # Automation job scripts
-│   └── ccip/                    # CCIP message consumers
-
-├── indexers/               # Graph indexing
-│   └── schema.graphql
-
-└── data/                   # Logs and schemas
-    └── schema.json
-```
-
-````
++-------------------+ +-------------------+ +-------------------+
+| | | | | |
+| KEY TECHNOLOGIES | | SECURITY CONTROLS | | ERROR HANDLING |
+| | | | | |
++-------------------+ +-------------------+ +-------------------+
+| - Next.js | | - Balance locking | | - Tx errors |
+| - ElizaOS | | - CCIP validation | | - CCIP failures |
+| - AWS Bedrock | | - Access controls | | - Strategy |
+| - Chainlink CCIP | | - Role-based auth | | validation |
+| - Socket.io | | - Adapter vetting | | - AI fallbacks |
+| - Wagmi/Viem | | | | |
++-------------------+ +-------------------+ +-------------------+
 
 ---
 
@@ -165,4 +178,4 @@ Built for Chainlink Hackathon 2025.
 ```
 
 ---
-````
+```
